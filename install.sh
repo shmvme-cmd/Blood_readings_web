@@ -6,9 +6,9 @@
 
 set -e
 
-REPO="https://github.com/shmvme-cmd/med-dnevnik"
-ARCHIVE_URL="${REPO}/archive/refs/heads/main.tar.gz"
-ARCHIVE_NAME="med-dnevnik-main"
+REPO="https://github.com/shmvme-cmd/Blood_readings_web"
+ARCHIVE_URL="${REPO}/archive/refs/heads/master.tar.gz"
+ARCHIVE_NAME="Blood_readings_web-master"
 PROJECT_DIR="/usr/bin/med-dnevnik"
 SERVICE_NAME="med-dnevnik"
 SERVICE_USER="root"
