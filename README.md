@@ -66,7 +66,7 @@
 ## Установка на сервер (Debian/Ubuntu)
 
 ```bash
-sudo bash install.sh
+curl -sSL https://raw.githubusercontent.com/shmvme-cmd/Blood_readings_web/master/install.sh | sudo bash
 ```
 
 Скрипт автоматически:
