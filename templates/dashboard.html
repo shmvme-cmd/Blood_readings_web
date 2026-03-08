@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+
+{% block title %}Главная — МедДневник{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <div class="page-title">Добро пожаловать, {{ current_user.username }}</div>
+        <div class="page-subtitle">Обзор ваших показателей</div>
+    </div>
+    <a href="{{ url_for('main.add_analysis') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Новый анализ
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="stat-label mb-1"><i class="bi bi-journal-medical me-1"></i>Всего анализов</div>
+            <div class="stat-value">{{ analyses|length }}</div>
+        </div>
+    </div>
+    {% if analyses %}
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="stat-label mb-1"><i class="bi bi-calendar-check me-1"></i>Последний анализ</div>
+            <div class="stat-value" style="font-size:1.4rem">{{ analyses[0].date.strftime('%d.%m.%Y') }}</div>
+        </div>
+    </div>
+    {% set last = analyses[0] %}
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="stat-label mb-1"><i class="bi bi-droplet me-1"></i>Глюкоза</div>
+            <div class="stat-value {% if last.glucose is not none and (last.glucose < 3.6 or last.glucose > 6.4) %}val-warn{% elif last.glucose is not none %}val-ok{% endif %}" style="font-size:1.5rem">
+                {% if last.glucose is not none %}{{ "%.2f"|format(last.glucose) }} <small class="text-secondary" style="font-size:.9rem">ммоль/л</small>{% else %}—{% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="stat-label mb-1"><i class="bi bi-heart-pulse me-1"></i>Холестерин</div>
+            <div class="stat-value {% if last.total_cholesterol is not none and (last.total_cholesterol < 3.6 or last.total_cholesterol > 5.2) %}val-warn{% elif last.total_cholesterol is not none %}val-ok{% endif %}" style="font-size:1.5rem">
+                {% if last.total_cholesterol is not none %}{{ "%.2f"|format(last.total_cholesterol) }} <small class="text-secondary" style="font-size:.9rem">ммоль/л</small>{% else %}—{% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center py-3 px-4">
+        <span><i class="bi bi-clock-history me-2"></i>Последние анализы</span>
+        <a href="{{ url_for('main.list_analyses') }}" class="btn btn-sm btn-outline-primary">Все записи</a>
+    </div>
+    {% if analyses %}
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-4">Дата</th>
+                    <th>Глюкоза</th>
+                    <th>Холестерин</th>
+                    <th>ЛПНП</th>
+                    <th>ЛПВП</th>
+                    <th class="pe-4"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in analyses[:8] %}
+                <tr>
+                    <td class="ps-4">{{ a.date.strftime('%d.%m.%Y') }}</td>
+                    <td class="{% if a.glucose is not none and (a.glucose < 3.6 or a.glucose > 6.4) %}val-warn{% elif a.glucose is not none %}val-ok{% endif %}">
+                        {{ "%.2f"|format(a.glucose) if a.glucose is not none else '—' }}
+                    </td>
+                    <td class="{% if a.total_cholesterol is not none and (a.total_cholesterol < 3.6 or a.total_cholesterol > 5.2) %}val-warn{% elif a.total_cholesterol is not none %}val-ok{% endif %}">
+                        {{ "%.2f"|format(a.total_cholesterol) if a.total_cholesterol is not none else '—' }}
+                    </td>
+                    <td class="{% if a.ldl is not none and a.ldl > 3.5 %}val-warn{% elif a.ldl is not none %}val-ok{% endif %}">
+                        {{ "%.2f"|format(a.ldl) if a.ldl is not none else '—' }}
+                    </td>
+                    <td class="{% if a.hdl is not none and a.hdl < 0.9 %}val-warn{% elif a.hdl is not none %}val-ok{% endif %}">
+                        {{ "%.2f"|format(a.hdl) if a.hdl is not none else '—' }}
+                    </td>
+                    <td class="pe-4 text-end">
+                        <a href="{{ url_for('main.view_analysis', id=a.id) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-5 text-center text-secondary">
+        <i class="bi bi-journal-x" style="font-size:2.5rem"></i>
+        <p class="mt-3 mb-3">Анализов пока нет</p>
+        <a href="{{ url_for('main.add_analysis') }}" class="btn btn-primary">Добавить первый анализ</a>
+    </div>
+    {% endif %}
+</div>
+
+{% if analyses and analyses|length > 1 %}
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center py-3 px-4">
+        <span><i class="bi bi-graph-up me-2"></i>Динамика показателей</span>
+    </div>
+    <div class="p-4">
+        <div class="mb-4">
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                        id="paramDropdownBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                        aria-expanded="false">
+                    <i class="bi bi-sliders me-1"></i><span id="paramDropdownLabel">Выберите показатели</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-dark p-2"
+                    style="max-height:420px; overflow-y:auto; min-width:280px">
+                    <li class="px-2 pb-2 pt-1 border-bottom border-secondary mb-1">
+                        <small class="text-secondary fw-semibold">Биохимия</small>
+                    </li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="glucose">
+                        Глюкоза</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="total_cholesterol">
+                        Общий холестерин</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="ldl">
+                        ЛПНП</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="hdl">
+                        ЛПВП</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="triglycerides">
+                        Триглицериды</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="vldl">
+                        ЛПОНП</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="alt">
+                        АЛТ</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="ast">
+                        АСТ</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="creatinine">
+                        Креатинин</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="de_ritis_ratio">
+                        Коэф. де Ритиса</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="ldl_hdl_ratio">
+                        ЛПНП/ЛПВП</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="bilirubin_total">
+                        Билирубин общий</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="bilirubin_direct">
+                        Билирубин прямой</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="bilirubin_indirect">
+                        Билирубин непрямой</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="alkaline_phosphatase">
+                        Щелочная фосфатаза</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="urea">
+                        Мочевина</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="gfr">
+                        СКФ</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="ckf_total">
+                        КФК</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="psa">
+                        ПСА общий</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="microalbumin">
+                        Микроальбумин</label></li>
+                    <li class="px-2 pb-2 pt-2 border-top border-secondary border-bottom mt-1 mb-1">
+                        <small class="text-secondary fw-semibold">Клинический анализ крови</small>
+                    </li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="esr">
+                        СОЭ</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="hemoglobin">
+                        Гемоглобин</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="rbc">
+                        Эритроциты</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="hematocrit">
+                        Гематокрит</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="mcv">
+                        MCV</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="mch">
+                        MCH</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="mchc">
+                        MCHC</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="rdw">
+                        RDW</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="platelets">
+                        Тромбоциты</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="mpv">
+                        MPV</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="pdw">
+                        PDW</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="pct">
+                        Тромбокрит</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="wbc">
+                        Лейкоциты</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="neutrophils_abs">
+                        Нейтрофилы абс.</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="neutrophils_pct">
+                        Нейтрофилы %</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="lymphocytes_abs">
+                        Лимфоциты абс.</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="lymphocytes_pct">
+                        Лимфоциты %</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="monocytes_abs">
+                        Моноциты абс.</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="monocytes_pct">
+                        Моноциты %</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="eosinophils_abs">
+                        Эозинофилы абс.</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="eosinophils_pct">
+                        Эозинофилы %</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="basophils_abs">
+                        Базофилы абс.</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="basophils_pct">
+                        Базофилы %</label></li>
+                    <li class="px-2 pb-2 pt-2 border-top border-secondary border-bottom mt-1 mb-1">
+                        <small class="text-secondary fw-semibold">Анализ мочи</small>
+                    </li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="urine_specific_gravity">
+                        Удельный вес мочи</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="urine_ph">
+                        pH мочи</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="urine_protein">
+                        Белок в моче</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="urine_urobilinogen">
+                        Уробилиноген</label></li>
+                </ul>
+            </div>
+            <div id="selectedBadges" class="d-flex flex-wrap gap-1 mt-2"></div>
+        </div>
+        <div style="position:relative; height:320px;">
+            <canvas id="dynamicsChart" style="display:none"></canvas>
+            <div id="chartPlaceholder" class="d-flex align-items-center justify-content-center h-100 w-100 text-secondary" style="position:absolute;inset:0">
+                <div class="text-center">
+                    <i class="bi bi-bar-chart-line" style="font-size:2.5rem;opacity:.3"></i>
+                    <p class="mt-2 mb-0">Выберите показатели для отображения</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header py-3 px-4">
+        <span><i class="bi bi-clipboard-data me-2"></i>Анализ динамики</span>
+    </div>
+    <div class="p-4">
+        <div id="analysisPanel">
+            <div class="d-flex align-items-center gap-2 text-secondary small">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                Загрузка данных…
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if analyses and analyses|length > 1 %}
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script>
+const PARAMS = {
+    glucose:               { label: 'Глюкоза',                          unit: 'ммоль/л',  min: 3.6,   max: 6.4   },
+    total_cholesterol:     { label: 'Общий холестерин',                  unit: 'ммоль/л',  min: 3.6,   max: 5.2   },
+    ldl:                   { label: 'ЛПНП',                             unit: 'ммоль/л',  min: 0,     max: 3.5   },
+    hdl:                   { label: 'ЛПВП',                             unit: 'ммоль/л',  min: 0.9,   max: 2.1   },
+    triglycerides:         { label: 'Триглицериды',                      unit: 'ммоль/л',  min: 0.5,   max: 2.83  },
+    vldl:                  { label: 'ЛПОНП',                            unit: 'ммоль/л',  min: 0,     max: 3.3   },
+    alt:                   { label: 'АЛТ',                              unit: 'Ед/л',     min: 5,     max: 31    },
+    ast:                   { label: 'АСТ',                              unit: 'Ед/л',     min: 5,     max: 35    },
+    creatinine:            { label: 'Креатинин',                         unit: 'мкмоль/л', min: 80,    max: 115   },
+    de_ritis_ratio:        { label: 'Коэф. де Ритиса',                   unit: '',         min: 0.91,  max: 1.75  },
+    ldl_hdl_ratio:         { label: 'ЛПНП/ЛПВП',                        unit: '',         min: 0,     max: 3.0   },
+    bilirubin_total:       { label: 'Билирубин общий',                   unit: 'мкмоль/л', min: 3.4,   max: 17.1  },
+    bilirubin_direct:      { label: 'Билирубин прямой',                  unit: 'мкмоль/л', min: 0,     max: 5.1   },
+    bilirubin_indirect:    { label: 'Билирубин непрямой',                unit: 'мкмоль/л', min: 1.7,   max: 12.0  },
+    alkaline_phosphatase:  { label: 'Щелочная фосфатаза',                unit: 'ЕД/л',     min: 44,    max: 147   },
+    urea:                  { label: 'Мочевина',                          unit: 'ммоль/л',  min: 2.5,   max: 8.3   },
+    gfr:                   { label: 'СКФ',                              unit: 'мл/мин',   min: 60,    max: null  },
+    ckf_total:             { label: 'КФК',                              unit: 'ЕД/л',     min: 24,    max: 195   },
+    psa:                   { label: 'ПСА общий',                        unit: 'нг/мл',    min: null,  max: 4.0   },
+    microalbumin:          { label: 'Микроальбумин',                     unit: 'мг/сут',   min: null,  max: 30.0  },
+    esr:                   { label: 'СОЭ',                              unit: 'мм/ч',     min: 2,     max: 15    },
+    hemoglobin:            { label: 'Гемоглобин',                        unit: 'г/л',      min: 130,   max: 160   },
+    rbc:                   { label: 'Эритроциты',                        unit: '10¹²/л',   min: 4.0,   max: 6.0   },
+    hematocrit:            { label: 'Гематокрит',                        unit: '%',        min: 40,    max: 48    },
+    mcv:                   { label: 'MCV',                              unit: 'фл',       min: 80,    max: 99    },
+    mch:                   { label: 'MCH',                              unit: 'пг',       min: 27,    max: 32    },
+    mchc:                  { label: 'MCHC',                             unit: 'г/л',      min: 320,   max: 360   },
+    rdw:                   { label: 'RDW',                              unit: '%',        min: 11,    max: 16    },
+    platelets:             { label: 'Тромбоциты',                        unit: '10⁹/л',    min: 150,   max: 400   },
+    mpv:                   { label: 'MPV',                              unit: 'фл',       min: 6,     max: 11    },
+    pdw:                   { label: 'PDW',                              unit: '%',        min: 10,    max: 18    },
+    pct:                   { label: 'Тромбокрит',                        unit: '%',        min: 0.1,   max: 1.0   },
+    wbc:                   { label: 'Лейкоциты',                         unit: '10⁹/л',    min: 4,     max: 10    },
+    neutrophils_abs:       { label: 'Нейтрофилы абс.',                   unit: '10⁹/л',    min: 2.5,   max: 7.0   },
+    neutrophils_pct:       { label: 'Нейтрофилы %',                      unit: '%',        min: 47,    max: 72    },
+    lymphocytes_abs:       { label: 'Лимфоциты абс.',                    unit: '10⁹/л',    min: 1.5,   max: 4.0   },
+    lymphocytes_pct:       { label: 'Лимфоциты %',                       unit: '%',        min: 19,    max: 39    },
+    monocytes_abs:         { label: 'Моноциты абс.',                     unit: '10⁹/л',    min: 0.2,   max: 0.8   },
+    monocytes_pct:         { label: 'Моноциты %',                        unit: '%',        min: 3,     max: 11    },
+    eosinophils_abs:       { label: 'Эозинофилы абс.',                   unit: '10⁹/л',    min: 0.04,  max: 0.44  },
+    eosinophils_pct:       { label: 'Эозинофилы %',                      unit: '%',        min: 0.5,   max: 5.0   },
+    basophils_abs:         { label: 'Базофилы абс.',                     unit: '10⁹/л',    min: 0.01,  max: 0.1   },
+    basophils_pct:         { label: 'Базофилы %',                        unit: '%',        min: 0,     max: 1.0   },
+    urine_specific_gravity:{ label: 'Удельный вес мочи',                 unit: 'усл.ед.',  min: 1.010, max: 1.030 },
+    urine_ph:              { label: 'pH мочи',                           unit: 'ед. рН',   min: 5.0,   max: 7.0   },
+    urine_protein:         { label: 'Белок в моче',                      unit: 'г/л',      min: null,  max: 0.14  },
+    urine_urobilinogen:    { label: 'Уробилиноген в моче',               unit: 'мкмоль/л', min: null,  max: 17.0  },
+};
+
+const LINE_COLORS = [
+    '#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4',
+    '#a855f7','#ec4899','#14b8a6','#f97316','#84cc16',
+];
+
+function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
+let chartData = [];
+let chart = null;
+let selectedParams = [];
+
+function renderAnalysis() {
+    const container = document.getElementById('analysisPanel');
+    if (!container || !chartData || chartData.length < 2) return;
+
+    const last = chartData[chartData.length - 1];
+    const stats = [];
+
+    if (selectedParams.length === 0) {
+        container.innerHTML = '<div class="text-secondary small"><i class="bi bi-info-circle me-1"></i>Выберите показатели на графике выше для просмотра анализа</div>';
+        return;
+    }
+    for (const key of selectedParams) {
+        const meta = PARAMS[key];
+        if (!meta) continue;
+        const allVals = chartData.map(d => d[key]).filter(v => v !== null && v !== undefined);
+        if (allVals.length === 0) continue;
+        const lastVal = last[key];
+        if (lastVal === null || lastVal === undefined) continue;
+
+        const inNorm = (meta.min === null || lastVal >= meta.min) &&
+                       (meta.max === null || lastVal <= meta.max);
+        const firstVal = allVals[0];
+        const changePct = (allVals.length >= 2 && firstVal !== 0)
+            ? ((lastVal - firstVal) / Math.abs(firstVal) * 100) : null;
+
+        // Trend vs previous non-null measurement
+        let prevVal = null;
+        for (let i = chartData.length - 2; i >= 0; i--) {
+            if (chartData[i][key] !== null && chartData[i][key] !== undefined) {
+                prevVal = chartData[i][key]; break;
+            }
+        }
+        let trendDir = null;
+        if (prevVal !== null) {
+            if (lastVal > prevVal * 1.005) trendDir = 'up';
+            else if (lastVal < prevVal * 0.995) trendDir = 'down';
+            else trendDir = 'stable';
+        }
+
+        // Is trend improving (moving toward norm)?
+        let improving = null;
+        if (trendDir && trendDir !== 'stable' && prevVal !== null) {
+            if (meta.max !== null && prevVal > meta.max && trendDir === 'down') improving = true;
+            else if (meta.min !== null && prevVal < meta.min && trendDir === 'up') improving = true;
+            else if (!inNorm) improving = false;
+        }
+
+        stats.push({ key, meta, lastVal, firstVal, inNorm, changePct, trendDir, improving, count: allVals.length });
+    }
+
+    const inNormList  = stats.filter(s => s.inNorm);
+    const outNormList = stats.filter(s => !s.inNorm);
+    const movers = stats
+        .filter(s => s.changePct !== null && Math.abs(s.changePct) >= 5 && s.count >= 2)
+        .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
+        .slice(0, 8);
+
+    function trendIcon(s) {
+        if (!s.trendDir || s.trendDir === 'stable')
+            return '<i class="bi bi-dash text-secondary"></i>';
+        const up = s.trendDir === 'up';
+        const arrow = up ? 'up-short' : 'down-short';
+        const color = s.improving === true ? 'text-success' : s.improving === false ? 'text-danger' : 'text-secondary';
+        return `<i class="bi bi-arrow-${arrow} ${color} fs-5"></i>`;
+    }
+
+    let html = '<div class="row g-3">';
+
+    // Left card: norm status
+    html += `<div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-body p-3">
+                <div class="text-secondary small fw-semibold mb-3">
+                    <i class="bi bi-clipboard-check me-1"></i>СТАТУС В ПОСЛЕДНЕМ АНАЛИЗЕ
+                </div>
+                <div class="d-flex gap-4 mb-3">
+                    <div class="text-center">
+                        <div style="font-size:1.8rem;font-weight:700;color:#22c55e">${inNormList.length}</div>
+                        <div class="text-secondary" style="font-size:.8rem">в норме</div>
+                    </div>
+                    <div class="text-center">
+                        <div style="font-size:1.8rem;font-weight:700;color:#ef4444">${outNormList.length}</div>
+                        <div class="text-secondary" style="font-size:.8rem">вне нормы</div>
+                    </div>
+                </div>`;
+
+    if (outNormList.length > 0) {
+        html += '<div class="small">';
+        outNormList.forEach(s => {
+            const unit = s.meta.unit ? ` ${s.meta.unit}` : '';
+            const badge = (s.meta.max !== null && s.lastVal > s.meta.max)
+                ? '<span style="font-size:.7rem;color:#ef4444">▲ выше</span>'
+                : '<span style="font-size:.7rem;color:#f59e0b">▼ ниже</span>';
+            html += `<div class="d-flex justify-content-between align-items-center py-1" style="border-bottom:1px solid rgba(148,163,184,.12)">
+                <span>${s.meta.label}</span>
+                <span class="d-flex align-items-center gap-1">
+                    ${trendIcon(s)}
+                    <span class="fw-semibold" style="color:#ef4444">${s.lastVal.toFixed(2)}${unit}</span>
+                    ${badge}
+                </span>
+            </div>`;
+        });
+        html += '</div>';
+    } else {
+        html += '<div class="text-success small"><i class="bi bi-check-circle me-1"></i>Все измеренные показатели в пределах нормы</div>';
+    }
+
+    html += '</div></div></div>';
+
+    // Right card: top movers
+    html += `<div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-body p-3">
+                <div class="text-secondary small fw-semibold mb-3">
+                    <i class="bi bi-arrow-left-right me-1"></i>ИЗМЕНЕНИЯ (первый → последний анализ)
+                </div>`;
+
+    if (movers.length > 0) {
+        html += '<div class="small">';
+        movers.forEach(s => {
+            const unit = s.meta.unit ? ` ${s.meta.unit}` : '';
+            const sign = s.changePct > 0 ? '+' : '';
+            const pctColor = s.inNorm ? '#22c55e' : '#ef4444';
+            const bgPct   = s.inNorm ? 'rgba(34,197,94,.15)' : 'rgba(239,68,68,.15)';
+            const firstFmt = s.firstVal !== null ? s.firstVal.toFixed(2) : '—';
+            html += `<div class="d-flex justify-content-between align-items-center py-1" style="border-bottom:1px solid rgba(148,163,184,.12)">
+                <span>${s.meta.label}</span>
+                <span class="d-flex align-items-center gap-2">
+                    <span class="text-secondary">${firstFmt}${unit}</span>
+                    <span class="text-secondary small">→</span>
+                    <span class="fw-semibold" style="color:${pctColor}">${s.lastVal.toFixed(2)}${unit}</span>
+                    <span class="rounded-pill px-2" style="font-size:.7rem;background:${bgPct};color:${pctColor}">${sign}${s.changePct.toFixed(1)}%</span>
+                </span>
+            </div>`;
+        });
+        html += '</div>';
+    } else {
+        html += '<div class="text-secondary small">Нет значимых изменений (≥5%) между анализами</div>';
+    }
+
+    html += '</div></div></div>';
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function loadData() {
+    const resp = await fetch('{{ url_for("main.chart_data") }}');
+    chartData = await resp.json();
+    renderChart();
+    renderAnalysis();
+}
+
+function renderChart() {
+    const canvas = document.getElementById('dynamicsChart');
+    const placeholder = document.getElementById('chartPlaceholder');
+    if (selectedParams.length === 0) {
+        if (chart) { chart.destroy(); chart = null; }
+        canvas.style.display = 'none';
+        placeholder.style.display = 'flex';
+        return;
+    }
+    canvas.style.display = 'block';
+    placeholder.style.display = 'none';
+    const labels = chartData.map(d => d.date);
+    const single = selectedParams.length === 1;
+    const ctx = canvas.getContext('2d');
+    const datasets = [];
+
+    selectedParams.forEach((param, idx) => {
+        const meta  = PARAMS[param];
+        const color = LINE_COLORS[idx % LINE_COLORS.length];
+        const values = chartData.map(d => d[param]);
+
+        datasets.push({
+            label: meta.label,
+            data: values,
+            borderColor: color,
+            backgroundColor: single ? hexToRgba(color, 0.20) : 'transparent',
+            borderWidth: 2.5,
+            pointBackgroundColor: values.map(v => {
+                if (v === null) return 'transparent';
+                const hi = meta.max !== null && v > meta.max;
+                const lo = meta.min !== null && v < meta.min;
+                return (hi || lo) ? '#ef4444' : '#22c55e';
+            }),
+            pointBorderColor: '#1a1d27',
+            pointRadius: 5, pointHoverRadius: 7,
+            fill: single,
+            tension: 0.35,
+            spanGaps: true,
+        });
+
+        if (single) {
+            if (meta.max !== null) datasets.push({
+                label: 'Норма (макс)', data: Array(labels.length).fill(meta.max),
+                borderColor: 'rgba(34,197,94,0.5)', borderWidth: 1.5, borderDash: [6,4],
+                pointRadius: 0, fill: meta.min !== null ? '+1' : false,
+                backgroundColor: 'rgba(34,197,94,0.07)', tension: 0,
+            });
+            if (meta.min !== null) datasets.push({
+                label: 'Норма (мин)', data: Array(labels.length).fill(meta.min),
+                borderColor: 'rgba(34,197,94,0.5)', borderWidth: 1.5, borderDash: [6,4],
+                pointRadius: 0, fill: false, tension: 0,
+            });
+        }
+    });
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    display: !single,
+                    labels: { color: '#94a3b8', boxWidth: 14, padding: 16 }
+                },
+                tooltip: {
+                    backgroundColor: '#1a1d27', borderColor: '#2d3148', borderWidth: 1,
+                    titleColor: '#94a3b8', bodyColor: '#e2e8f0', padding: 12,
+                    callbacks: {
+                        label: ctx => {
+                            const param = selectedParams[ctx.datasetIndex];
+                            if (!param || ctx.parsed.y === null) return null;
+                            const meta = PARAMS[param];
+                            const v = ctx.parsed.y;
+                            const unit = meta.unit ? ` ${meta.unit}` : '';
+                            const bad = (meta.max !== null && v > meta.max) || (meta.min !== null && v < meta.min);
+                            return ` ${meta.label}: ${v.toFixed(2)}${unit} ${bad ? '⚠' : '✓'}`;
+                        },
+                        title: ctx => `📅 ${ctx[0].label}`,
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 12 } } },
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: {
+                        color: '#64748b', font: { size: 12 },
+                        callback: v => single ? v + (PARAMS[selectedParams[0]].unit ? ` ${PARAMS[selectedParams[0]].unit}` : '') : v,
+                    },
+                    title: {
+                        display: single && !!PARAMS[selectedParams[0]].unit,
+                        text: single ? PARAMS[selectedParams[0]].unit : '',
+                        color: '#475569', font: { size: 11 },
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateDropdownLabel() {
+    const lbl = document.getElementById('paramDropdownLabel');
+    if (!lbl) return;
+    if (selectedParams.length === 0) lbl.textContent = 'Выберите показатели';
+    else if (selectedParams.length === 1) lbl.textContent = PARAMS[selectedParams[0]].label;
+    else lbl.textContent = selectedParams.length + ' показателя(-ей)';
+}
+
+function updateBadges() {
+    const container = document.getElementById('selectedBadges');
+    if (!container) return;
+    container.innerHTML = '';
+    selectedParams.forEach(param => {
+        const badge = document.createElement('span');
+        badge.className = 'badge rounded-pill d-flex align-items-center gap-1';
+        badge.style.cssText = 'background:#2d3148;color:#e2e8f0;font-size:.8rem;padding:.35em .7em';
+        badge.innerHTML = `${PARAMS[param].label}
+            <button type="button" class="btn-close btn-close-white ms-1" style="font-size:.55rem"
+                    data-remove="${param}"></button>`;
+        container.appendChild(badge);
+    });
+    container.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const p = btn.dataset.remove;
+            const cb = document.querySelector(`.param-check[value="${p}"]`);
+            if (cb) cb.checked = false;
+            selectedParams = selectedParams.filter(x => x !== p);
+            updateDropdownLabel(); updateBadges(); renderChart(); renderAnalysis();
+        });
+    });
+}
+
+document.querySelectorAll('.param-check').forEach(cb => {
+    cb.addEventListener('change', () => {
+        if (cb.checked) {
+            if (!selectedParams.includes(cb.value)) selectedParams.push(cb.value);
+        } else {
+            selectedParams = selectedParams.filter(p => p !== cb.value);
+        }
+        updateDropdownLabel(); updateBadges(); renderChart(); renderAnalysis();
+    });
+});
+
+loadData();
+</script>
+{% endif %}
+{% endblock %}

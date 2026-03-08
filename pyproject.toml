@@ -1,0 +1,20 @@
+[project]
+name = "blood-readings-web"
+version = "0.1.0"
+description = "Web application for tracking blood analysis results"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.1.0",
+    "flask-sqlalchemy>=3.1.1",
+    "flask-login>=0.6.3",
+    "bootstrap-flask>=2.5.0",
+    "flask-wtf>=1.2.2",
+    "python-dotenv>=1.2.1",
+    "email-validator>=2.0.0",
+    "pdfplumber>=0.11.0",
+]
+
+[tool.uv]
+dev-dependencies = []
+

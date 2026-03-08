@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Мои анализы{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <div class="page-title">Мои анализы</div>
+        <div class="page-subtitle">История показателей</div>
+    </div>
+    <a href="{{ url_for('main.add_analysis') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Новый анализ
+    </a>
+</div>
+
+<div class="card">
+    {% if analyses %}
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-3" style="width:44px">
+                        <input type="checkbox" class="form-check-input" id="checkAll" title="Выбрать все">
+                    </th>
+                    <th>Дата</th>
+                    <th>Глюкоза</th>
+                    <th>Холестерин</th>
+                    <th>ЛПНП</th>
+                    <th>ЛПВП</th>
+                    <th>Триглицериды</th>
+                    <th class="pe-4 text-end">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in analyses %}
+                <tr>
+                    <td class="ps-3">
+                        <input type="checkbox" class="form-check-input row-check" value="{{ a.id }}">
+                    </td>
+                    <td class="fw-medium">{{ a.date.strftime('%d.%m.%Y') }}</td>
+                    <td>
+                        {% set norm = norms.get_norm('glucose') %}
+                        {% if a.glucose is not none %}
+                        <span class="{% if a.glucose < norm['range'][0] or a.glucose > norm['range'][1] %}val-warn{% else %}val-ok{% endif %}">
+                            {{ "%.2f"|format(a.glucose) }}
+                        </span>
+                        <small class="text-secondary">{{ norm['unit'] }}</small>
+                        {% else %}<span class="text-secondary">—</span>{% endif %}
+                    </td>
+                    <td>
+                        {% set norm = norms.get_norm('total_cholesterol') %}
+                        {% if a.total_cholesterol is not none %}
+                        <span class="{% if a.total_cholesterol < norm['range'][0] or a.total_cholesterol > norm['range'][1] %}val-warn{% else %}val-ok{% endif %}">
+                            {{ "%.2f"|format(a.total_cholesterol) }}
+                        </span>
+                        <small class="text-secondary">{{ norm['unit'] }}</small>
+                        {% else %}<span class="text-secondary">—</span>{% endif %}
+                    </td>
+                    <td>
+                        {% set norm = norms.get_norm('ldl') %}
+                        {% if a.ldl is not none %}
+                        <span class="{% if a.ldl > norm['range'][1] %}val-warn{% else %}val-ok{% endif %}">
+                            {{ "%.2f"|format(a.ldl) }}
+                        </span>
+                        <small class="text-secondary">{{ norm['unit'] }}</small>
+                        {% else %}<span class="text-secondary">—</span>{% endif %}
+                    </td>
+                    <td>
+                        {% set norm = norms.get_norm('hdl') %}
+                        {% if a.hdl is not none %}
+                        <span class="{% if a.hdl < norm['range'][0] %}val-warn{% else %}val-ok{% endif %}">
+                            {{ "%.2f"|format(a.hdl) }}
+                        </span>
+                        <small class="text-secondary">{{ norm['unit'] }}</small>
+                        {% else %}<span class="text-secondary">—</span>{% endif %}
+                    </td>
+                    <td>
+                        {% set norm = norms.get_norm('triglycerides') %}
+                        {% if a.triglycerides is not none %}
+                        <span class="{% if a.triglycerides > norm['range'][1] %}val-warn{% else %}val-ok{% endif %}">
+                            {{ "%.2f"|format(a.triglycerides) }}
+                        </span>
+                        <small class="text-secondary">{{ norm['unit'] }}</small>
+                        {% else %}<span class="text-secondary">—</span>{% endif %}
+                    </td>
+                    <td class="pe-4 text-end">
+                        <a href="{{ url_for('main.view_analysis', id=a.id) }}" class="btn btn-sm btn-outline-secondary me-1" title="Просмотр">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{{ url_for('main.edit_analysis', id=a.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Изменить">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('main.delete_analysis', id=a.id) }}" class="d-inline">
+                            {% set confirm_msg = 'Удалить анализ от ' ~ a.date.strftime('%d.%m.%Y') ~ '?' %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                onclick="return confirm('{{ confirm_msg }}')" title="Удалить">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-5 text-center text-secondary">
+        <i class="bi bi-journal-x" style="font-size:2.5rem"></i>
+        <p class="mt-3 mb-3">Анализов пока нет</p>
+        <a href="{{ url_for('main.add_analysis') }}" class="btn btn-primary">Добавить первый анализ</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Панель объединения анализов -->
+<div id="mergeBar" class="position-fixed bottom-0 start-0 end-0 border-top border-secondary d-none"
+     style="background:#1a1d20; z-index:1040; box-shadow: 0 -4px 16px rgba(0,0,0,.5)">
+    <form method="POST" action="{{ url_for('main.merge_analyses') }}" id="mergeForm"
+          onsubmit="return confirmMerge()">
+        <div id="mergeIdsContainer"></div>
+        <div class="container-fluid py-3">
+            <div class="row align-items-center g-3 flex-wrap">
+                <div class="col-auto">
+                    <span class="fw-medium text-warning" id="selectedCount">0 выбрано</span>
+                </div>
+                <div class="col-auto">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text text-secondary">Дата записи</span>
+                        <input type="text" name="merge_date" id="mergeDateInput"
+                               class="form-control" style="width:130px" placeholder="ДД.ММ.ГГГГ" required>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <select name="diet" class="form-select form-select-sm">
+                        <option value="none">Обычная диета</option>
+                        <option value="keto">Кето</option>
+                        <option value="intermittent_fasting">Интервальное голодание</option>
+                        <option value="low_carb">Низкоуглеводная</option>
+                        <option value="vegetarian">Вегетарианская</option>
+                        <option value="vegan">Веганская</option>
+                    </select>
+                </div>
+                <div class="col-auto ms-auto d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelMerge">
+                        <i class="bi bi-x-lg me-1"></i>Отмена
+                    </button>
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="bi bi-intersect me-1"></i>Объединить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+(function () {
+    const checkAll  = document.getElementById('checkAll');
+    const mergeBar  = document.getElementById('mergeBar');
+    const countSpan = document.getElementById('selectedCount');
+    const container = document.getElementById('mergeIdsContainer');
+    const cancelBtn = document.getElementById('cancelMerge');
+    const dateInput = document.getElementById('mergeDateInput');
+
+    // Дата по умолчанию — сегодня
+    const t = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    dateInput.value = pad(t.getDate()) + '.' + pad(t.getMonth() + 1) + '.' + t.getFullYear();
+    if (window.flatpickr) flatpickr('#mergeDateInput', { dateFormat: 'd.m.Y' });
+
+    function getChecked() {
+        return Array.from(document.querySelectorAll('.row-check:checked'));
+    }
+
+    function updateBar() {
+        const checked = getChecked();
+        if (checked.length >= 2) {
+            mergeBar.classList.remove('d-none');
+            countSpan.textContent = 'Выбрано: ' + checked.length;
+            container.innerHTML = '';
+            checked.forEach(cb => {
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'ids[]'; inp.value = cb.value;
+                container.appendChild(inp);
+            });
+        } else {
+            mergeBar.classList.add('d-none');
+        }
+    }
+
+    checkAll.addEventListener('change', function () {
+        document.querySelectorAll('.row-check').forEach(cb => { cb.checked = this.checked; });
+        updateBar();
+    });
+
+    document.querySelectorAll('.row-check').forEach(cb => {
+        cb.addEventListener('change', function () {
+            const all = document.querySelectorAll('.row-check');
+            const ch  = getChecked();
+            checkAll.indeterminate = ch.length > 0 && ch.length < all.length;
+            checkAll.checked = ch.length === all.length && all.length > 0;
+            updateBar();
+        });
+    });
+
+    cancelBtn.addEventListener('click', function () {
+        document.querySelectorAll('.row-check').forEach(cb => { cb.checked = false; });
+        checkAll.checked = false;
+        checkAll.indeterminate = false;
+        mergeBar.classList.add('d-none');
+    });
+
+    window.confirmMerge = function () {
+        const n = getChecked().length;
+        return confirm('Объединить ' + n + ' анализов в одну запись? Исходные анализы будут удалены.');
+    };
+}());
+</script>
+{% endblock %}

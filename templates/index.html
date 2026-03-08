@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}МедДневник — Добро пожаловать{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-lg-7 text-center">
+        <div class="mb-4">
+            <span style="font-size:3.5rem; line-height:1"><i class="bi bi-activity" style="color:var(--accent)"></i></span>
+        </div>
+        <h1 class="fw-bold mb-3" style="font-size:2.75rem">
+            Контроль<br>анализов
+        </h1>
+        <p class="text-secondary mb-5" style="font-size:1.1rem; max-width:480px; margin:0 auto 2rem">
+            Храните историю показателей, отслеживайте динамику и получайте информацию об отклонениях от нормы.
+        </p>
+        <div class="d-flex gap-3 justify-content-center">
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg px-5">
+                Начать <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+            <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary btn-lg px-5">Войти</a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-4 justify-content-center">
+    <div class="col-md-4">
+        <div class="card p-4">
+            <div class="mb-3" style="font-size:1.75rem; color:var(--accent)"><i class="bi bi-shield-check"></i></div>
+            <h5 class="fw-semibold mb-2">Контроль норм</h5>
+            <p class="text-secondary mb-0 small">Каждый показатель автоматически сравнивается с референсными значениями</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-4">
+            <div class="mb-3" style="font-size:1.75rem; color:#22c55e"><i class="bi bi-graph-up-arrow"></i></div>
+            <h5 class="fw-semibold mb-2">История динамики</h5>
+            <p class="text-secondary mb-0 small">Ведите хронологию анализов и наблюдайте за изменениями в показателях</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-4">
+            <div class="mb-3" style="font-size:1.75rem; color:#f59e0b"><i class="bi bi-calculator"></i></div>
+            <h5 class="fw-semibold mb-2">Расчёт коэффициентов</h5>
+            <p class="text-secondary mb-0 small">Автоматически вычисляются коэффициент де Ритиса и соотношение ЛПНП/ЛПВП</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

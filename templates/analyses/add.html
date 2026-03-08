@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Новый анализ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <div class="page-title">Новый анализ</div>
+        <div class="page-subtitle">Заполните показатели</div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('main.list_analyses') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Назад
+        </a>
+        <a href="{{ url_for('main.list_analyses') }}" class="btn btn-outline-secondary">Отмена</a>
+        {{ form.submit(class="btn btn-primary px-4", form="analysis_form") }}
+    </div>
+</div>
+
+{# --- PDF-карточка вне формы чтобы не мешать сабмиту --- #}
+<div class="card mb-4" style="border-color: rgba(99,102,241,.3)">
+    <div class="card-header py-3 px-4 d-flex align-items-center gap-2">
+        <i class="bi bi-file-earmark-pdf" style="color:var(--accent)"></i>
+        Загрузить параметры из PDF
+    </div>
+    <div class="card-body p-4">
+        <label class="form-label text-secondary small fw-semibold">PDF-файл с результатами анализа</label>
+        <div class="input-group">
+            <input type="file" id="pdf_file" accept=".pdf" multiple class="form-control">
+            <button type="button" id="btn_parse_pdf" class="btn btn-outline-primary">
+                <i class="bi bi-upload me-1"></i>Распознать и заполнить
+            </button>
+        </div>
+        <div class="norm-hint mt-1">Можно выбрать несколько PDF сразу — поля будут объединены</div>
+        <div id="pdf_status" class="mt-2" style="display:none">
+            <div id="pdf_status_text" class="small"></div>
+        </div>
+    </div>
+</div>
+
+<form method="POST" novalidate id="analysis_form">
+    {{ form.hidden_tag() }}
+    {{ form.id() }}
+
+    {% if form.errors %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Не удалось сохранить анализ. Проверьте обязательные поля.
+        {% for field, errs in form.errors.items() %}
+            {% for e in errs %}<br><small>{{ field }}: {{ e }}</small>{% endfor %}
+        {% endfor %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-header py-3 px-4">Дата анализа и тип питания</div>
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    {{ form.date.label(class="form-label") }}
+                    {{ form.date(class="form-control" + (' is-invalid' if form.date.errors else ''), placeholder="дд.мм.гггг") }}
+                    {% if form.date.errors %}
+                        <div class="invalid-feedback">{{ form.date.errors[0] }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    {{ form.diet.label(class="form-label") }}
+                    {{ form.diet(class="form-select") }}
+                    <div class="norm-hint mt-1">Тип диеты может влиять на ряд показателей (глюкоза, холестерин, триглицериды)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% include 'analyses/_form_body.html' %}
+
+</form>
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr-dark.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr-ru.js') }}"></script>
+<script>
+flatpickr("#date", {
+    locale: "ru",
+    dateFormat: "d.m.Y",
+    maxDate: "today",
+    allowInput: true,
+    disableMobile: false,
+});
+
+document.getElementById('btn_parse_pdf').addEventListener('click', async function () {
+    const fileInput = document.getElementById('pdf_file');
+    const statusBox = document.getElementById('pdf_status');
+    const statusText = document.getElementById('pdf_status_text');
+    const files = fileInput.files;
+
+    if (!files.length) {
+        statusBox.style.display = 'block';
+        statusText.innerHTML = '<span style="color:#ef4444">Выберите PDF-файл</span>';
+        return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+    statusBox.style.display = 'none';
+
+    let merged = {};
+    let errors = [];
+
+    for (let i = 0; i < files.length; i++) {
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Файл ' + (i + 1) + ' из ' + files.length + '…';
+        const fd = new FormData();
+        fd.append('pdf_file', files[i]);
+        try {
+            const resp = await fetch('{{ url_for("main.parse_pdf_route") }}', {
+                method: 'POST',
+                body: fd,
+                headers: {'X-CSRFToken': document.querySelector('input[name=csrf_token]').value}
+            });
+            const data = await resp.json();
+            if (data.error) {
+                errors.push(files[i].name + ': ' + data.error);
+            } else {
+                for (const [k, v] of Object.entries(data)) {
+                    if (v !== null && v !== undefined) merged[k] = v;
+                }
+            }
+        } catch (e) {
+            errors.push(files[i].name + ': ошибка сети');
+        }
+    }
+
+    let filled = 0;
+    for (const [key, val] of Object.entries(merged)) {
+        const el = document.getElementById(key);
+        if (el) {
+            if (el.type === 'checkbox') {
+                el.checked = Boolean(val);
+            } else {
+                el.value = val;
+                el.classList.add('is-valid');
+                if (key === 'date' && el._flatpickr) {
+                    el._flatpickr.setDate(val, false, 'd.m.Y');
+                }
+            }
+            filled++;
+        }
+    }
+
+    statusBox.style.display = 'block';
+    if (errors.length) {
+        statusText.innerHTML = '<span style="color:#ef4444"><i class="bi bi-exclamation-circle me-1"></i>' + errors.join('; ') + '</span>';
+    } else if (filled > 0) {
+        const fileWord = files.length > 1 ? ' из ' + files.length + ' файлов' : '';
+        statusText.innerHTML = '<span style="color:#22c55e"><i class="bi bi-check-circle me-1"></i>Заполнено полей: ' + filled + fileWord + '</span>';
+    } else {
+        statusText.innerHTML = '<span style="color:#f59e0b">Параметры не распознаны. Попробуйте другой PDF.</span>';
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-upload me-1"></i>Распознать и заполнить';
+});
+</script>
+{% endblock %}

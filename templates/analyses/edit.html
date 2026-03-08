@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Редактировать анализ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <div class="page-title">Редактировать анализ</div>
+        <div class="page-subtitle">{{ analysis.date.strftime('%d.%m.%Y') }}</div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('main.list_analyses') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Назад
+        </a>
+        <a href="{{ url_for('main.list_analyses') }}" class="btn btn-outline-secondary">Отмена</a>
+        {{ form.submit(class="btn btn-primary px-4", form="analysis_form") }}
+    </div>
+</div>
+
+<form method="POST" novalidate id="analysis_form">
+    {{ form.hidden_tag() }}
+    {{ form.id() }}
+
+    <div class="card mb-4">
+        <div class="card-header py-3 px-4">Дата анализа и тип питания</div>
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    {{ form.date.label(class="form-label") }}
+                    {{ form.date(class="form-control" + (' is-invalid' if form.date.errors else ''), placeholder="дд.мм.гггг") }}
+                    {% if form.date.errors %}
+                        <div class="invalid-feedback">{{ form.date.errors[0] }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    {{ form.diet.label(class="form-label") }}
+                    {{ form.diet(class="form-select") }}
+                    <div class="norm-hint mt-1">Тип диеты может влиять на ряд показателей (глюкоза, холестерин, триглицериды)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% include 'analyses/_form_body.html' %}
+
+</form>
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr-dark.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr-ru.js') }}"></script>
+<script>
+flatpickr("#date", {
+    locale: "ru",
+    dateFormat: "d.m.Y",
+    maxDate: "today",
+    allowInput: true,
+    disableMobile: false,
+    defaultDate: document.getElementById("date").value || null,
+});
+</script>
+{% endblock %}

@@ -1,0 +1,343 @@
+{# -----------------------------------------------------------------------
+   _form_body.html  —  тело формы AnalysisForm
+   Переменные контекста: form, norms
+   ----------------------------------------------------------------------- #}
+
+{# ---- Макрос: карточка одного поля ---- #}
+{% macro field_card(f) %}
+{% set nm = norms.get_norm(f.name) %}
+<div class="col-md-4">
+    <div class="card h-100">
+        <div class="card-body p-3">
+            {% if nm %}<div class="text-secondary small fw-semibold mb-1">{{ nm['name'] }}</div>{% endif %}
+            {{ f.label(class="form-label small mb-1") }}
+            {{ f(class="form-control" + (' is-invalid' if f.errors else '')) }}
+            {% if f.errors %}<div class="invalid-feedback">{{ f.errors[0] }}</div>{% endif %}
+            {% if nm and (nm['range'][0] is not none or nm['range'][1] is not none) %}
+            <div class="norm-hint mt-1">
+                Норма:
+                {{ nm['range'][0] if nm['range'][0] is not none else '—' }}–{{ nm['range'][1] if nm['range'][1] is not none else '—' }}
+                {{ nm['unit'] }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{# ======================================================================
+   НАВИГАЦИЯ ПО ВКЛАДКАМ
+   ====================================================================== #}
+<ul class="nav nav-pills mb-4 gap-2" id="analysisTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active px-4" id="tab-blood-btn"
+                data-bs-toggle="pill" data-bs-target="#tab-blood"
+                type="button" role="tab" aria-controls="tab-blood" aria-selected="true">
+            <i class="bi bi-droplet-fill me-1" style="color:#ef4444"></i>Кровь
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link px-4" id="tab-urine-btn"
+                data-bs-toggle="pill" data-bs-target="#tab-urine"
+                type="button" role="tab" aria-controls="tab-urine" aria-selected="false">
+            <i class="bi bi-droplet me-1" style="color:#f59e0b"></i>Моча
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link px-4" id="tab-serology-btn"
+                data-bs-toggle="pill" data-bs-target="#tab-serology"
+                type="button" role="tab" aria-controls="tab-serology" aria-selected="false">
+            <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Серология
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content mb-4">
+
+{# ======================================================================
+   ВКЛАДКА: КРОВЬ
+   ====================================================================== #}
+<div class="tab-pane fade show active" id="tab-blood" role="tabpanel" aria-labelledby="tab-blood-btn">
+    <div class="accordion" id="acc-blood">
+
+        {# --- Биохимия --- #}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#acc-biochem"
+                        aria-expanded="true" aria-controls="acc-biochem">
+                    <i class="bi bi-flask me-2" style="color:var(--accent)"></i>
+                    Биохимия крови
+                </button>
+            </h2>
+            <div id="acc-biochem" class="accordion-collapse collapse show">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {{ field_card(form.glucose) }}
+                        {{ field_card(form.triglycerides) }}
+                        {{ field_card(form.hdl) }}
+                        {{ field_card(form.total_cholesterol) }}
+                        {{ field_card(form.vldl) }}
+                        {{ field_card(form.ldl) }}
+                        {{ field_card(form.alt) }}
+                        {{ field_card(form.ast) }}
+                        {{ field_card(form.creatinine) }}
+                        {{ field_card(form.bilirubin_total) }}
+                        {{ field_card(form.bilirubin_direct) }}
+                        {{ field_card(form.bilirubin_indirect) }}
+                        {{ field_card(form.alkaline_phosphatase) }}
+                        {{ field_card(form.urea) }}
+                        {{ field_card(form.gfr) }}
+                        {{ field_card(form.ckf_total) }}
+                        {{ field_card(form.psa) }}
+                        {{ field_card(form.microalbumin) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- Эритроциты и гемоглобин --- #}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#acc-rbc"
+                        aria-expanded="true" aria-controls="acc-rbc">
+                    <i class="bi bi-droplet-fill me-2" style="color:#ef4444"></i>
+                    Эритроциты и гемоглобин (ОАК)
+                </button>
+            </h2>
+            <div id="acc-rbc" class="accordion-collapse collapse show">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {{ field_card(form.hemoglobin) }}
+                        {{ field_card(form.rbc) }}
+                        {{ field_card(form.hematocrit) }}
+                        {{ field_card(form.mcv) }}
+                        {{ field_card(form.mch) }}
+                        {{ field_card(form.mchc) }}
+                        {{ field_card(form.rdw) }}
+                        {{ field_card(form.esr) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- Тромбоциты --- #}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#acc-plt"
+                        aria-expanded="false" aria-controls="acc-plt">
+                    <i class="bi bi-droplet me-2" style="color:#f59e0b"></i>
+                    Тромбоциты (ОАК)
+                </button>
+            </h2>
+            <div id="acc-plt" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {{ field_card(form.platelets) }}
+                        {{ field_card(form.mpv) }}
+                        {{ field_card(form.pdw) }}
+                        {{ field_card(form.pct) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- Лейкоциты и формула --- #}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#acc-wbc"
+                        aria-expanded="false" aria-controls="acc-wbc">
+                    <i class="bi bi-circle-fill me-2" style="color:#22c55e;font-size:.65rem;vertical-align:middle"></i>
+                    Лейкоциты и лейкоцитарная формула (ОАК)
+                </button>
+            </h2>
+            <div id="acc-wbc" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3 mb-3">
+                        {{ field_card(form.wbc) }}
+                    </div>
+                    <div class="text-secondary small fw-semibold mb-2">Лейкоцитарная формула</div>
+                    <div class="row g-3">
+                        {{ field_card(form.neutrophils_abs) }}
+                        {{ field_card(form.neutrophils_pct) }}
+                        {{ field_card(form.lymphocytes_abs) }}
+                        {{ field_card(form.lymphocytes_pct) }}
+                        {{ field_card(form.monocytes_abs) }}
+                        {{ field_card(form.monocytes_pct) }}
+                        {{ field_card(form.eosinophils_abs) }}
+                        {{ field_card(form.eosinophils_pct) }}
+                        {{ field_card(form.basophils_abs) }}
+                        {{ field_card(form.basophils_pct) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>{# /acc-blood #}
+</div>{# /tab-blood #}
+
+{# ======================================================================
+   ВКЛАДКА: МОЧА
+   ====================================================================== #}
+<div class="tab-pane fade" id="tab-urine" role="tabpanel" aria-labelledby="tab-urine-btn">
+    <div class="accordion" id="acc-urine">
+
+        {# --- Общие показатели --- #}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#acc-urine-gen"
+                        aria-expanded="true" aria-controls="acc-urine-gen">
+                    <i class="bi bi-clipboard-data me-2" style="color:var(--accent)"></i>
+                    Общие показатели
+                </button>
+            </h2>
+            <div id="acc-urine-gen" class="accordion-collapse collapse show">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {{ field_card(form.urine_color) }}
+                        {{ field_card(form.urine_transparency) }}
+                        {{ field_card(form.urine_specific_gravity) }}
+                        {{ field_card(form.urine_ph) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- Химические показатели (тест-полоска) --- #}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#acc-urine-chem"
+                        aria-expanded="true" aria-controls="acc-urine-chem">
+                    <i class="bi bi-flask me-2" style="color:var(--accent)"></i>
+                    Химические показатели (тест-полоска)
+                </button>
+            </h2>
+            <div id="acc-urine-chem" class="accordion-collapse collapse show">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {{ field_card(form.urine_protein) }}
+                        {{ field_card(form.urine_urobilinogen) }}
+                        {{ field_card(form.urine_glucose) }}
+                        {{ field_card(form.urine_bilirubin) }}
+                        {{ field_card(form.urine_ketones) }}
+                        {{ field_card(form.urine_blood) }}
+                        {{ field_card(form.urine_nitrites) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- Микроскопия: клетки и микроорганизмы --- #}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#acc-urine-micro"
+                        aria-expanded="false" aria-controls="acc-urine-micro">
+                    <i class="bi bi-grid-3x3 me-2" style="color:var(--accent)"></i>
+                    Микроскопия — клетки и микроорганизмы
+                </button>
+            </h2>
+            <div id="acc-urine-micro" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {{ field_card(form.urine_leukocytes_semi) }}
+                        {{ field_card(form.urine_leukocytes_micro) }}
+                        {{ field_card(form.urine_erythrocytes_changed) }}
+                        {{ field_card(form.urine_erythrocytes_unchanged) }}
+                        {{ field_card(form.urine_epithelium_renal) }}
+                        {{ field_card(form.urine_epithelium_transitional) }}
+                        {{ field_card(form.urine_epithelium_flat) }}
+                        {{ field_card(form.urine_spermatozoa) }}
+                        {{ field_card(form.urine_trichomonas) }}
+                        {{ field_card(form.urine_yeast) }}
+                        {{ field_card(form.urine_bacteria) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- Цилиндры, соли, слизь --- #}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#acc-urine-salt"
+                        aria-expanded="false" aria-controls="acc-urine-salt">
+                    <i class="bi bi-circle me-2" style="color:var(--accent)"></i>
+                    Цилиндры, соли, слизь
+                </button>
+            </h2>
+            <div id="acc-urine-salt" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {{ field_card(form.urine_cylinders_hyaline) }}
+                        {{ field_card(form.urine_cylinders_granular) }}
+                        {{ field_card(form.urine_cylinders_waxy) }}
+                        {{ field_card(form.urine_cylinders_epithelial) }}
+                        {{ field_card(form.urine_cylinders_leukocyte) }}
+                        {{ field_card(form.urine_mucus) }}
+                        {{ field_card(form.urine_phosphates_amorphous) }}
+                        {{ field_card(form.urine_urates) }}
+                        {{ field_card(form.urine_crystals_triplephosphate) }}
+                        {{ field_card(form.urine_crystals_uric_acid) }}
+                        {{ field_card(form.urine_crystals_oxalate) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>{# /acc-urine #}
+</div>{# /tab-urine #}
+
+{# ======================================================================
+   ВКЛАДКА: СЕРОЛОГИЯ
+   ====================================================================== #}
+<div class="tab-pane fade" id="tab-serology" role="tabpanel" aria-labelledby="tab-serology-btn">
+    <div class="card">
+        <div class="card-body p-4">
+            <p class="text-secondary small mb-4">
+                <i class="bi bi-info-circle me-1"></i>
+                Включено — положительный результат, выключено — отрицательный / не определялся
+            </p>
+            <div class="row g-3">
+                {% for f in [form.hbs_ag, form.hiv_ab, form.hepatitis_c_ab, form.treponema_ab] %}
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body p-3 d-flex align-items-center justify-content-between gap-3">
+                            <label class="form-check-label fw-semibold" for="{{ f.id }}">{{ f.label.text }}</label>
+                            <div class="form-check form-switch mb-0 flex-shrink-0">
+                                {{ f(class="form-check-input", role="switch",
+                                     style="width:3em;height:1.5em;cursor:pointer",
+                                     id=f.id) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>{# /tab-serology #}
+
+</div>{# /tab-content #}
+
+<script>
+// Автоматически открыть вкладку и раздел аккордеона, содержащий ошибку
+document.addEventListener('DOMContentLoaded', function () {
+    var invalid = document.querySelector('.is-invalid');
+    if (!invalid) return;
+    var pane = invalid.closest('.tab-pane');
+    if (pane) {
+        var btn = document.querySelector('[data-bs-target="#' + pane.id + '"]');
+        if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+    }
+    var collapse = invalid.closest('.accordion-collapse');
+    if (collapse && !collapse.classList.contains('show')) {
+        bootstrap.Collapse.getOrCreateInstance(collapse).show();
+    }
+});
+</script>
