@@ -51,16 +51,33 @@ FIELD_PATTERNS = {
     'basophils_abs':      [r'абсолютн.*базоф', r'базофил.*абс', r'baso.*abs', r'bas#'],
     'basophils_pct':      [r'относит.*базоф', r'базофил.*%', r'baso.*%'],
     # Биохимия дополнительная
+    'albumin':                [r'\bальбумин', r'\balbumin\b'],
+    'total_protein':          [r'белок\s+общ', r'общий\s+белок', r'total.?protein'],
+    'ggt':                    [r'гамма.{0,10}глутамил', r'\bггт\b', r'\bggt\b', r'gamma.?glutamyl'],
+    'potassium':              [r'\bкалий', r'\bpotassium\b'],
+    'calcium':                [r'кальций\s+общ', r'общий\s+кальций', r'\bcalcium\b'],
+    'sodium':                 [r'\bнатрий', r'\bsodium\b'],
+    'phosphorus':             [r'фосфор\s+неорган', r'неорганический\s+фосфор', r'\bphosphorus\b'],
+    'chloride':               [r'\bхлор', r'\bchloride\b'],
     'bilirubin_total':        [r'билирубин общ', r'bilirubin.*total', r'определение билирубина общ'],
     'bilirubin_direct':       [r'билирубин.{0,2}прям', r'bilirubin.*direct', r'\bконъюгирован', r'моноглюкурон', r'диглюкурон', r'моноглюкорон', r'диглюкорон'],
     'bilirubin_indirect':     [r'билирубин.{0,3}непрям', r'bilirubin.*indirect', r'неконъюгирован', r'непрямого.*своб'],
-    'alkaline_phosphatase':   [r'щелочн.*фосфатаз', r'\bщф\b', r'alkaline.*phosphatase', r'\balp\b', r'определение щелочн'],
+    'alkaline_phosphatase':   [r'щелочн.*фосфатаз', r'фосфатаз.*щелочн', r'\bщф\b', r'alkaline.*phosphatase', r'\balp\b', r'определение щелочн'],
     'urea':                   [r'\bмочевин', r'\burea\b', r'\bbun\b', r'определение мочевин'],
+    # Гормоны (были в модели, но паттерны отсутствовали в парсере)
+    'ferritin':               [r'ферритин', r'\bferritin\b'],
+    'insulin':                [r'инсулин', r'\binsulin\b'],
+    'homa_ir':                [r'homa.{0,3}ir', r'индекс.*инсулинорезист', r'инсулинорезист.*индекс'],
+    'vitamin_d':              [r'витамин\s+d', r'25.{0,5}oh.{0,5}d', r'25-hydroxyvitamin'],
     'gfr':                    [r'скорость клубочков', r'клубочков.*фильтрац', r'\bскф\b', r'\bgfr\b'],
     'ckf_total':              [r'креатинфосфокиназ', r'\bкфк\b', r'\bcpk\b', r'creatine.*kinase', r'общей креатин'],
     'psa':                    [r'\bпса\b', r'\bpsa\b', r'простатспецифич', r'исследование пса'],
     'microalbumin':           [r'микроальбумин', r'microalbumin'],
-    # Анализ мочи
+    # Анализ мочи по Нечипоренко
+    'nechiporenko_leukocytes':    [r'лейкоциты.*ед/мл', r'лейкоцит.*нечипоренко', r'nechiporenko.*leukocyte'],
+    'nechiporenko_erythrocytes':  [r'эритроциты.*ед/мл', r'эритроцит.*нечипоренко', r'nechiporenko.*erythrocyte'],
+    'nechiporenko_cylinders':     [r'цилиндры.*ед/мл', r'цилиндр.*нечипоренко', r'nechiporenko.*cylinder'],
+    # Общий анализ мочи
     'urine_specific_gravity': [r'удельный вес', r'specific gravity'],
     'urine_ph':               [r'ph мочи', r'реакция мочи', r'^\s*ph\s*$'],
     'urine_protein':          [r'белок полуколич', r'белок количест', r'\bpro\b.*г/л', r'белок.*мочи'],
@@ -203,6 +220,30 @@ def parse_pdf(file_stream):
                 for row in table:
                     if not row:
                         continue
+
+                    # Определяем единицу измерения в строке (для Нечипоренко: Ед/мл)
+                    row_unit = ' '.join((c or '') for c in row).lower()
+                    is_nechiporenko_row = 'ед/мл' in row_unit and 'нечипоренко' in full_text.lower()
+
+                    # Если строка из анализа по Нечипоренко — используем специальный маппинг
+                    if is_nechiporenko_row:
+                        label = (row[0] or '').lower().strip()
+                        _nechi_table_map = [
+                            (r'лейкоцит', 'nechiporenko_leukocytes'),
+                            (r'эритроцит', 'nechiporenko_erythrocytes'),
+                            (r'цилиндр',   'nechiporenko_cylinders'),
+                        ]
+                        for pat, nf in _nechi_table_map:
+                            if re.search(pat, label) and nf not in result:
+                                for cell in row[1:]:
+                                    if cell:
+                                        val = _extract_number(str(cell))
+                                        if val is not None:
+                                            result[nf] = val
+                                            break
+                                break
+                        continue  # не обрабатывать эту строку общим алгоритмом
+
                     # Проверяем первые 2 ячейки как возможную метку
                     field = None
                     label_idx = 0
@@ -232,10 +273,34 @@ def parse_pdf(file_stream):
                                     result[tf] = val_cell.strip()
                                 break
 
+    # Специальный парсинг анализа мочи по Нечипоренко (до строкового парсера!)
+    # Запускается первым, чтобы строковый парсер не перехватил «Лейкоциты» как urine_leukocytes_micro.
+    _is_nechiporenko_doc = 'нечипоренко' in full_text.lower()
+    if _is_nechiporenko_doc:
+        _nechi_map = [
+            (r'лейкоцит', 'nechiporenko_leukocytes'),
+            (r'эритроцит', 'nechiporenko_erythrocytes'),
+            (r'цилиндр',   'nechiporenko_cylinders'),
+        ]
+        for line in full_text.splitlines():
+            if 'ед/мл' not in line.lower():
+                continue
+            line_l = line.lower()
+            for pat, field in _nechi_map:
+                if re.search(pat, line_l):
+                    m = re.search(r'(\d+)', line)
+                    if m:
+                        result[field] = float(m.group(1))
+                    break
+
     # Парсим по строкам текста для полей, не найденных в таблицах
     for line in full_text.splitlines():
         line_stripped = line.strip()
         if not line_stripped:
+            continue
+
+        # В документе Нечипоренко пропускаем строки с «Ед/мл» — уже обработаны выше
+        if _is_nechiporenko_doc and 'ед/мл' in line_stripped.lower():
             continue
 
         # Шаг 1: явные разделители (таб, |, :)
@@ -243,6 +308,12 @@ def parse_pdf(file_stream):
         if len(parts) < 2:
             # Шаг 2: два и более пробела (напр. "АЛТ  25  Ед/л  5-40")
             parts = re.split(r'\s{2,}', line_stripped)
+        if len(parts) < 2:
+            # Шаг 2.5: «Метка[цифра-сноска] [▲▼]значение» — формат PDF Литех
+            # Пример: «Альбумин2 45,78 г/л» или «Мочевина1 7,00 ммоль/л»
+            m = re.match(r'^([^\d]+?)\d+\s+[▲▼]?\s*(\d[\d.,]*)', line_stripped)
+            if m:
+                parts = [m.group(1).strip(), m.group(2)]
         if len(parts) < 2:
             # Шаг 3: метка — всё до первого числа (напр. "Глюкоза 5.4 ммоль/л")
             m = re.match(r'^([^\d]+?)\s+(\d[\d.,]*)', line_stripped)

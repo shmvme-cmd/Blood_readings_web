@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}МедДневник{% endblock %}</title>
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}" rel="stylesheet">
@@ -88,28 +89,90 @@
         /* Value status colors */
         .val-ok { color: #22c55e; }
         .val-warn { color: #ef4444; }
+
+        /* Highlighted value badges in tables */
+        .vbadge {
+            display: inline-block; padding: .18em .55em;
+            border-radius: 6px; font-weight: 600; font-size: .82rem;
+            white-space: nowrap;
+        }
+        .vbadge-ok   { background: rgba(34,197,94,.13);  color: #22c55e; }
+        .vbadge-warn { background: rgba(239,68,68,.18);  color: #ef4444; }
+        .vbadge-none { color: #475569; }
+
+        /* ── Mobile fixes ── */
+        html { overflow-x: hidden; }
+
+        /* Bottom tab bar — mobile app feel */
+        .bottom-nav {
+            display: none;
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 1030;
+            background: #13151f; border-top: 1px solid var(--card-border);
+            box-shadow: 0 -4px 20px rgba(0,0,0,.4);
+        }
+        .bottom-nav .bn-item {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: .45rem .25rem .35rem;
+            color: #64748b; text-decoration: none; font-size: .62rem;
+            font-weight: 500; letter-spacing: .02em; gap: 2px;
+            transition: color .15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .bottom-nav .bn-item i { font-size: 1.3rem; }
+        .bottom-nav .bn-item.active,
+        .bottom-nav .bn-item:hover { color: var(--accent); }
+        .bottom-nav .bn-item.bn-add {
+            background: var(--accent); color: #fff !important;
+            border-radius: 14px; margin: .35rem .5rem;
+            padding: .35rem; max-width: 52px;
+        }
+        .bottom-nav .bn-item.bn-add i { font-size: 1.5rem; }
+
+        @media (max-width: 767px) {
+            .container-xl { padding-left: .75rem; padding-right: .75rem; }
+            .page-title { font-size: 1.2rem; }
+            .stat-card .stat-value { font-size: 1.5rem; }
+            /* Hide less-critical table columns on small screens */
+            .table .d-mobile-none { display: none !important; }
+            /* Merge-bar: make it wrap on phones */
+            #mergeBar .flex-wrap { flex-wrap: wrap; }
+            /* Buttons min touch size */
+            .btn { min-height: 40px; }
+            .btn-sm { min-height: 34px; }
+            /* Navbar gap on mobile */
+            .navbar-nav.gap-1 { gap: 0 !important; }
+            /* Show bottom nav, add space so content clears it */
+            .bottom-nav { display: flex; }
+            .container-xl.py-4 { padding-bottom: 5rem !important; }
+        }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container-xl">
-            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+            <a class="navbar-brand" href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('auth.login') }}">
                 <i class="bi bi-heart-pulse me-2" style="color:var(--accent)"></i>Мед<span>Дневник</span>
             </a>
             <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto ms-3 gap-1">
+                <ul class="navbar-nav me-auto ms-3 gap-1 d-none d-lg-flex">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.dashboard') }}">
+                        <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">
                             <i class="bi bi-grid me-1"></i>Главная
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.list_analyses') }}">
+                        <a class="nav-link {% if request.endpoint and 'analysis' in request.endpoint %}active{% endif %}" href="{{ url_for('main.list_analyses') }}">
                             <i class="bi bi-journal-medical me-1"></i>Мои анализы
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'main.body' %}active{% endif %}" href="{{ url_for('main.body') }}">
+                            <i class="bi bi-person-bounding-box me-1"></i>Параметры тела
                         </a>
                     </li>
                     {% endif %}
@@ -188,6 +251,26 @@
 
         {% block content %}{% endblock %}
     </div>
+
+    {% if current_user.is_authenticated %}
+    <nav class="bottom-nav">
+        <a href="{{ url_for('main.dashboard') }}" class="bn-item {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+            <i class="bi bi-grid"></i>Главная
+        </a>
+        <a href="{{ url_for('main.list_analyses') }}" class="bn-item {% if request.endpoint and 'analysis' in request.endpoint %}active{% endif %}">
+            <i class="bi bi-journal-medical"></i>Анализы
+        </a>
+        <a href="{{ url_for('main.add_analysis') }}" class="bn-item bn-add">
+            <i class="bi bi-plus-lg"></i>
+        </a>
+        <a href="{{ url_for('main.body') }}" class="bn-item {% if request.endpoint == 'main.body' %}active{% endif %}">
+            <i class="bi bi-person-bounding-box"></i>Тело
+        </a>
+        <a href="{{ url_for('admin.profile') }}" class="bn-item {% if request.endpoint and 'profile' in request.endpoint %}active{% endif %}">
+            <i class="bi bi-person-circle"></i>Профиль
+        </a>
+    </nav>
+    {% endif %}
 
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
     {% block scripts %}{% endblock %}

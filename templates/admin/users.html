@@ -5,14 +5,56 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <div class="page-title"><i class="bi bi-people me-2" style="color:var(--accent)"></i>Пользователи</div>
-        <div class="page-subtitle">Управление учётными записями</div>
+        <div class="page-subtitle">{{ users|length }} учётных записей</div>
     </div>
     <a href="{{ url_for('admin.user_new') }}" class="btn btn-primary">
-        <i class="bi bi-person-plus me-1"></i>Добавить
+        <i class="bi bi-person-plus me-1"></i><span class="d-none d-sm-inline">Добавить</span>
     </a>
 </div>
 
-<div class="card">
+{# ── Mobile: карточки ── #}
+<div class="d-md-none">
+    {% for u in users %}
+    <div class="card mb-2 p-3">
+        <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                 style="width:44px;height:44px;background:rgba(99,102,241,.15);color:var(--accent);font-weight:700">
+                {{ u.username[0].upper() }}
+            </div>
+            <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold">
+                    {{ u.username }}
+                    {% if u.id == current_user.id %}<span class="badge ms-1" style="background:rgba(34,197,94,.15);color:#22c55e;font-size:.68rem">вы</span>{% endif %}
+                </div>
+                <div class="text-secondary small text-truncate">{{ u.email }}</div>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    {% if u.is_admin %}
+                    <span class="badge rounded-pill" style="background:rgba(99,102,241,.2);color:var(--accent);font-size:.68rem"><i class="bi bi-shield-fill-check me-1"></i>Админ</span>
+                    {% else %}
+                    <span class="badge rounded-pill" style="background:rgba(148,163,184,.1);color:#94a3b8;font-size:.68rem">Пользователь</span>
+                    {% endif %}
+                    <span class="text-secondary" style="font-size:.75rem">{{ u.analyses.count() }} анализов</span>
+                </div>
+            </div>
+            <div class="d-flex flex-column gap-1 flex-shrink-0">
+                <a href="{{ url_for('admin.user_edit', user_id=u.id) }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                {% if u.id != current_user.id %}
+                <form method="POST" action="{{ url_for('admin.user_delete', user_id=u.id) }}"
+                      onsubmit="return confirm('Удалить «{{ u.username }}» и все его анализы?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{# ── Desktop: таблица ── #}
+<div class="card d-none d-md-block">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
             <thead>
@@ -32,35 +74,29 @@
                     <td class="fw-semibold">
                         {{ u.username }}
                         {% if u.id == current_user.id %}
-                            <span class="badge rounded-pill ms-1" style="background:rgba(34,197,94,.15);color:#22c55e;font-size:.7rem">вы</span>
+                        <span class="badge rounded-pill ms-1" style="background:rgba(34,197,94,.15);color:#22c55e;font-size:.7rem">вы</span>
                         {% endif %}
                     </td>
                     <td>{{ u.email }}</td>
                     <td>
                         {% if u.is_admin %}
-                            <span class="badge rounded-pill" style="background:rgba(99,102,241,.2);color:var(--accent)">
-                                <i class="bi bi-shield-fill-check me-1"></i>Администратор
-                            </span>
+                        <span class="badge rounded-pill" style="background:rgba(99,102,241,.2);color:var(--accent)">
+                            <i class="bi bi-shield-fill-check me-1"></i>Администратор
+                        </span>
                         {% else %}
-                            <span class="badge rounded-pill" style="background:rgba(148,163,184,.1);color:#94a3b8">
-                                Пользователь
-                            </span>
+                        <span class="badge rounded-pill" style="background:rgba(148,163,184,.1);color:#94a3b8">Пользователь</span>
                         {% endif %}
                     </td>
                     <td class="text-center">{{ u.analyses.count() }}</td>
                     <td class="pe-4 text-end">
-                        <a href="{{ url_for('admin.user_edit', user_id=u.id) }}"
-                           class="btn btn-sm btn-outline-secondary me-1">
+                        <a href="{{ url_for('admin.user_edit', user_id=u.id) }}" class="btn btn-sm btn-outline-secondary me-1">
                             <i class="bi bi-pencil"></i>
                         </a>
                         {% if u.id != current_user.id %}
-                        <form method="POST" action="{{ url_for('admin.user_delete', user_id=u.id) }}"
-                              class="d-inline"
+                        <form method="POST" action="{{ url_for('admin.user_delete', user_id=u.id) }}" class="d-inline"
                               onsubmit="return confirm('Удалить «{{ u.username }}» и все его анализы?')">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                <i class="bi bi-trash"></i>
-                            </button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
                         </form>
                         {% endif %}
                     </td>

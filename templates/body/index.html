@@ -1,0 +1,635 @@
+{% extends 'base.html' %}
+{% block title %}Параметры тела — МедДневник{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr-dark.css') }}">
+<style>
+/* ── Карточки замеров ─────────────────────────── */
+.meas-card { border-radius:10px; padding:.75rem 1rem; display:flex; flex-direction:column; }
+.meas-label { font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; color:#64748b; margin-bottom:.2rem; }
+.meas-value { font-size:1.3rem; font-weight:700; line-height:1.15; flex:1; }
+.meas-sub   { font-size:.68rem; margin-top:.2rem; color:#64748b; }
+.meas-unit  { font-size:.72rem; font-weight:400; }
+
+/* ── Карточки висцерального жира ──────────────── */
+.visc-card { border-radius:12px; padding:1rem 1.2rem; }
+.visc-label { font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; color:#64748b; }
+.visc-value { font-size:1.75rem; font-weight:700; }
+.risk-ok   { background:rgba(34,197,94,.12);  color:#22c55e; }
+.risk-warn { background:rgba(245,158,11,.12); color:#f59e0b; }
+.risk-high { background:rgba(239,68,68,.14);  color:#ef4444; }
+
+/* ── Мобильная адаптация ──────────────────────── */
+@media (max-width: 767px) {
+    .meas-value { font-size:1.05rem; }
+    .visc-value { font-size:1.35rem; }
+    .table th, .table td { font-size:.72rem; padding:.3rem .35rem; }
+    .stat-card .stat-value { font-size:1.5rem; }
+    .page-title { font-size:1.2rem; }
+}
+@media (max-width: 575px) {
+    .hide-xs { display:none !important; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <div class="page-title"><i class="bi bi-person-bounding-box me-2" style="color:var(--accent)"></i>Параметры тела</div>
+        <div class="page-subtitle">Отслеживание веса, обхватов и индексов</div>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMeasModal">
+        <i class="bi bi-plus-lg me-1"></i>Новый замер
+    </button>
+</div>
+
+{# ── Флеш-сообщения ── #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for cat, msg in messages %}
+<div class="alert alert-{{ 'danger' if cat == 'danger' else 'success' }} alert-dismissible fade show mb-3" role="alert">
+    {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+{# ── Рост / пол ── #}
+{% if not height %}
+<div class="alert alert-warning mb-4">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    Укажите рост и пол для расчёта ИМТ, % жира и висцеральных индексов.
+    <button class="btn btn-sm btn-warning ms-3" data-bs-toggle="modal" data-bs-target="#heightModal">Указать</button>
+</div>
+{% else %}
+<div class="d-flex align-items-center gap-3 mb-4 text-secondary small">
+    <span><i class="bi bi-rulers me-1"></i>Рост: <strong class="text-body">{{ height }} см</strong></span>
+    {% if gender %}
+    <span><i class="bi bi-person me-1"></i>Пол: <strong class="text-body">{{ 'Мужской' if gender == 'male' else 'Женский' }}</strong></span>
+    {% endif %}
+    <button class="btn btn-link btn-sm p-0 text-secondary" data-bs-toggle="modal" data-bs-target="#heightModal">
+        <i class="bi bi-pencil-square"></i> изменить
+    </button>
+</div>
+{% endif %}
+
+{% if measurements %}
+{% set last = measurements[0] %}
+
+{# ── Карточки последнего замера ── #}
+<div class="row g-2 mb-4 row-cols-3 row-cols-sm-4 row-cols-md-6">
+
+    {% if last.weight %}
+    <div class="col">
+        <div class="card meas-card h-100">
+            <div class="meas-label">Вес</div>
+            <div class="meas-value" style="color:var(--accent)">{{ last.weight }}<small class="meas-unit"> кг</small></div>
+            <div class="meas-sub">&nbsp;</div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if height and last_bmi %}
+    {% set bmi_v = last_bmi.bmi(height) %}
+    <div class="col">
+        <div class="card meas-card h-100">
+            <div class="meas-label">ИМТ</div>
+            {% if bmi_v %}
+                {% if bmi_v < 18.5 %}
+                <div class="meas-value val-warn">{{ "%.1f"|format(bmi_v) }}</div><div class="meas-sub">Дефицит</div>
+                {% elif bmi_v < 25 %}
+                <div class="meas-value val-ok">{{ "%.1f"|format(bmi_v) }}</div><div class="meas-sub val-ok">Норма</div>
+                {% elif bmi_v < 30 %}
+                <div class="meas-value" style="color:#f59e0b">{{ "%.1f"|format(bmi_v) }}</div><div class="meas-sub" style="color:#f59e0b">Избыток</div>
+                {% else %}
+                <div class="meas-value val-warn">{{ "%.1f"|format(bmi_v) }}</div><div class="meas-sub val-warn">Ожирение</div>
+                {% endif %}
+            {% else %}
+                <div class="meas-value text-secondary">—</div><div class="meas-sub">&nbsp;</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if height and gender and last_navy %}
+    {% set nbf = last_navy.navy_body_fat(height, gender) %}
+    {% if nbf is not none %}
+    <div class="col">
+        <div class="card meas-card h-100">
+            <div class="meas-label">% жира</div>
+            {% if gender == 'male' %}
+                {% if nbf < 8 %}
+                <div class="meas-value val-warn">{{ "%.1f"|format(nbf) }}<small class="meas-unit">%</small></div><div class="meas-sub val-warn">Дефицит</div>
+                {% elif nbf < 20 %}
+                <div class="meas-value val-ok">{{ "%.1f"|format(nbf) }}<small class="meas-unit">%</small></div><div class="meas-sub val-ok">Норма</div>
+                {% elif nbf < 25 %}
+                <div class="meas-value" style="color:#f59e0b">{{ "%.1f"|format(nbf) }}<small class="meas-unit">%</small></div><div class="meas-sub" style="color:#f59e0b">Выше нормы</div>
+                {% else %}
+                <div class="meas-value val-warn">{{ "%.1f"|format(nbf) }}<small class="meas-unit">%</small></div><div class="meas-sub val-warn">Ожирение</div>
+                {% endif %}
+            {% else %}
+                {% if nbf < 14 %}
+                <div class="meas-value val-warn">{{ "%.1f"|format(nbf) }}<small class="meas-unit">%</small></div><div class="meas-sub val-warn">Дефицит</div>
+                {% elif nbf < 25 %}
+                <div class="meas-value val-ok">{{ "%.1f"|format(nbf) }}<small class="meas-unit">%</small></div><div class="meas-sub val-ok">Норма</div>
+                {% elif nbf < 32 %}
+                <div class="meas-value" style="color:#f59e0b">{{ "%.1f"|format(nbf) }}<small class="meas-unit">%</small></div><div class="meas-sub" style="color:#f59e0b">Выше нормы</div>
+                {% else %}
+                <div class="meas-value val-warn">{{ "%.1f"|format(nbf) }}<small class="meas-unit">%</small></div><div class="meas-sub val-warn">Ожирение</div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if last_whr %}
+    {% set whr = last_whr.waist_hip_ratio() %}
+    {% set whr_bad = whr and ((gender == 'male' and whr >= 0.9) or (gender != 'male' and whr >= 0.85)) %}
+    <div class="col">
+        <div class="card meas-card h-100">
+            <div class="meas-label">Т / Б</div>
+            {% if whr %}
+            <div class="meas-value {{ 'val-warn' if whr_bad else 'val-ok' }}">{{ "%.3f"|format(whr) }}</div>
+            <div class="meas-sub {{ 'val-warn' if whr_bad else 'val-ok' }}">{{ 'Выше нормы' if whr_bad else 'Норма' }}</div>
+            {% else %}
+            <div class="meas-value text-secondary">—</div><div class="meas-sub">&nbsp;</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if last.neck %}
+    <div class="col hide-xs">
+        <div class="card meas-card h-100">
+            <div class="meas-label">Шея</div>
+            <div class="meas-value" style="color:#94a3b8">{{ last.neck }}<small class="meas-unit"> см</small></div>
+            <div class="meas-sub">&nbsp;</div>
+        </div>
+    </div>
+    {% endif %}
+    {% if last.waist %}
+    <div class="col hide-xs">
+        <div class="card meas-card h-100">
+            <div class="meas-label">Талия</div>
+            <div class="meas-value" style="color:#94a3b8">{{ last.waist }}<small class="meas-unit"> см</small></div>
+            <div class="meas-sub">&nbsp;</div>
+        </div>
+    </div>
+    {% endif %}
+    {% if last.abdomen %}
+    <div class="col hide-xs">
+        <div class="card meas-card h-100">
+            <div class="meas-label">Живот</div>
+            <div class="meas-value" style="color:#94a3b8">{{ last.abdomen }}<small class="meas-unit"> см</small></div>
+            <div class="meas-sub">&nbsp;</div>
+        </div>
+    </div>
+    {% endif %}
+    {% if last.body_fat %}
+    <div class="col">
+        <div class="card meas-card h-100">
+            <div class="meas-label">% жира (изм.)</div>
+            <div class="meas-value" style="color:#f59e0b">{{ last.body_fat }}<small class="meas-unit"> %</small></div>
+            <div class="meas-sub">&nbsp;</div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Висцеральный жир (детали) ── #}
+{% if visceral.c_index or visceral.vfa or visceral.vai %}
+<div class="card mb-4">
+    <div class="card-header py-2 px-3">
+        <i class="bi bi-activity me-2" style="color:#ef4444"></i>Анализ висцерального жира
+        {% if not gender %}<span class="text-warning small ms-2"><i class="bi bi-exclamation-triangle me-1"></i>Укажите пол</span>{% endif %}
+    </div>
+    <div class="card-body p-3">
+        <div class="row g-3 mb-3">
+
+            {% if visceral.c_index is not none %}
+            {% set cr = visceral.c_risk %}
+            <div class="col-12 col-sm-6 col-md-4">
+                <div class="card visc-card {% if cr == 'ok' %}risk-ok{% elif cr == 'warn' %}risk-warn{% else %}risk-high{% endif %}">
+                    <div class="visc-label">Индекс коничности (C-index)</div>
+                    <div class="visc-value">{{ visceral.c_index }}</div>
+                    <div class="small mt-1">
+                        {% if cr == 'ok' %}Норма (м &lt;1,25 / ж &lt;1,18)
+                        {% elif cr == 'warn' %}Повышен — умеренный риск
+                        {% else %}Высокий — абдоминальное ожирение{% endif %}
+                    </div>
+                    <div class="text-secondary mt-2" style="font-size:.7rem">
+                        Форма тела: насколько вы ближе к «яблоку», а не «прямоугольнику».
+                        Чем ближе к 1.0 — тем лучше.
+                    </div>
+                    {% if visceral.c_date %}<div style="font-size:.63rem;color:#f59e0b;margin-top:.3rem"><i class="bi bi-clock-history"></i> {{ visceral.c_date.strftime('%d.%m.%Y') }}</div>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if visceral.vfa is not none %}
+            {% set vr = visceral.vfa_risk %}
+            <div class="col-12 col-sm-6 col-md-4">
+                <div class="card visc-card {% if vr == 'ok' %}risk-ok{% elif vr == 'warn' %}risk-warn{% else %}risk-high{% endif %}">
+                    <div class="visc-label">Площадь висцерального жира (VFA)</div>
+                    <div class="visc-value">{{ visceral.vfa }} <small style="font-size:.85rem">см²</small></div>
+                    <div class="small mt-1">
+                        {% if vr == 'ok' %}&lt;100 см² — Норма
+                        {% elif vr == 'warn' %}100–160 см² — Умеренный риск
+                        {% else %}&gt;160 см² — Высокий риск{% endif %}
+                    </div>
+                    <div class="text-secondary mt-2" style="font-size:.7rem">
+                        Расчёт по талии. При &gt;160 см² — значительный метаболический риск.
+                        Для точных данных нужна КТ/МРТ.
+                    </div>
+                    {% if visceral.vfa_date %}<div style="font-size:.63rem;color:#f59e0b;margin-top:.3rem"><i class="bi bi-clock-history"></i> {{ visceral.vfa_date.strftime('%d.%m.%Y') }}</div>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if visceral.vai is not none %}
+            {% set var = visceral.vai_risk %}
+            <div class="col-12 col-sm-6 col-md-4">
+                <div class="card visc-card {% if var == 'ok' %}risk-ok{% elif var == 'warn' %}risk-warn{% else %}risk-high{% endif %}">
+                    <div class="visc-label">Индекс висцерального ожирения (VAI)</div>
+                    <div class="visc-value">{{ visceral.vai }}</div>
+                    <div class="small mt-1">
+                        {% if var == 'ok' %}Низкий риск
+                        {% elif var == 'warn' %}Умеренный риск
+                        {% else %}Высокий риск — дисфункция жировой ткани{% endif %}
+                    </div>
+                    <div class="text-secondary mt-2" style="font-size:.7rem">
+                        Объединяет антропометрию и биохимию (ТГ, ЛПВП).
+                        Норма: м &lt;1,0 / ж &lt;1,52. Высокий VAI — риск СД2 и НАЖБП.
+                    </div>
+                    {% if visceral.vai_date %}<div style="font-size:.63rem;color:#f59e0b;margin-top:.3rem"><i class="bi bi-clock-history"></i> {{ visceral.vai_date.strftime('%d.%m.%Y') }}</div>{% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12 col-sm-6 col-md-4">
+                <div class="card visc-card" style="background:rgba(99,102,241,.06);border:1px dashed #3d4166">
+                    <div class="visc-label">Индекс висцерального ожирения (VAI)</div>
+                    <div class="text-secondary small mt-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Для расчёта нужны <strong>Триглицериды</strong> и <strong>ЛПВП</strong> из анализа крови.
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        {# Детальная интерпретация — скрыта на мобилке #}
+        <div class="d-none d-md-block">
+            <div class="card p-3" style="background:rgba(255,255,255,.03)">
+                <div class="fw-semibold mb-2" style="font-size:.82rem"><i class="bi bi-lightbulb me-2" style="color:#f59e0b"></i>Интерпретация</div>
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <div class="small text-secondary fw-semibold mb-1">C-index (коничность)</div>
+                        <div class="small text-secondary">≥1.25 (муж) / ≥1.18 (жен) — абдоминальный тип ожирения и повышенный сердечно-сосудистый риск. Не требует анализов крови.</div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="small text-secondary fw-semibold mb-1">VFA (площадь висцерального жира)</div>
+                        <div class="small text-secondary">&lt;100 см² — норма, 100–160 — умеренный риск, &gt;160 — высокий. Висцеральный жир выделяет цитокины, ухудшая чувствительность к инсулину.</div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="small text-secondary fw-semibold mb-1">VAI (висцеральное ожирение)</div>
+                        <div class="small text-secondary">Комплексный: талия + ИМТ + ТГ + ЛПВП. Связан с инсулинорезистентностью и СД2. Порог риска: муж &gt;2.52, жен &gt;2.53.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── График ── #}
+<div class="card mb-4">
+    <div class="card-header py-2 px-3">
+        <i class="bi bi-graph-up me-2" style="color:var(--accent)"></i>Динамика
+    </div>
+    <div class="card-body p-3">
+        <div class="d-flex flex-wrap gap-1 mb-3" style="font-size:.8rem">
+            {% for key, label in [('weight','Вес'),('waist','Талия'),('abdomen','Живот'),('hips','Бёдра'),
+                                   ('chest','Грудь'),('neck','Шея'),('thigh','Бедро'),('shin','Голень'),
+                                   ('forearm','Предплечье'),('wrist','Запястье'),('body_fat','% жира')] %}
+            <div class="form-check form-check-inline mb-0">
+                <input class="form-check-input body-chart-toggle" type="checkbox"
+                       id="tog_{{ key }}" data-key="{{ key }}" {% if key == 'weight' %}checked{% endif %}>
+                <label class="form-check-label text-secondary" for="tog_{{ key }}">{{ label }}</label>
+            </div>
+            {% endfor %}
+        </div>
+        <canvas id="bodyChart" style="max-height:280px"></canvas>
+    </div>
+</div>
+
+{# ── История замеров ── #}
+<div class="card mb-4">
+    <div class="card-header py-2 px-3"><i class="bi bi-table me-2"></i>История замеров</div>
+    <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0" style="font-size:.82rem">
+            <thead>
+                <tr>
+                    <th class="ps-3">Дата</th>
+                    <th>Вес</th>
+                    <th>ИМТ</th>
+                    <th>%ж</th>
+                    <th>Т/Б</th>
+                    <th>Талия</th>
+                    <th class="hide-xs">Шея</th>
+                    <th class="hide-xs">Живот</th>
+                    <th class="hide-xs">Бёдра</th>
+                    <th class="d-none d-md-table-cell">Грудь</th>
+                    <th class="d-none d-md-table-cell">Бедро</th>
+                    <th class="d-none d-md-table-cell">Голень</th>
+                    <th class="d-none d-lg-table-cell">Пред.</th>
+                    <th class="d-none d-lg-table-cell">Зап.</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in measurements %}
+                <tr>
+                    <td class="ps-3 text-nowrap fw-medium">{{ m.date.strftime('%d.%m.%Y') }}</td>
+                    <td>{{ m.weight or '—' }}</td>
+                    <td>
+                        {% if height and m.weight %}
+                        {% set bv = m.bmi(height) %}
+                        <span class="{% if bv < 18.5 or bv >= 30 %}val-warn{% elif bv < 25 %}val-ok{% else %}text-warning{% endif %}">{{ "%.1f"|format(bv) }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if height and gender %}
+                        {% set nf = m.navy_body_fat(height, gender) %}
+                        {% if nf is not none %}
+                        <span class="
+                            {%- if gender == 'male' -%}
+                                {%- if nf < 8 or nf >= 25 %}val-warn{%- elif nf < 20 %}val-ok{%- else %}text-warning{%- endif -%}
+                            {%- else -%}
+                                {%- if nf < 14 or nf >= 32 %}val-warn{%- elif nf < 25 %}val-ok{%- else %}text-warning{%- endif -%}
+                            {%- endif -%}
+                        ">{{ "%.1f"|format(nf) }}%</span>
+                        {% else %}—{% endif %}
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{% if m.waist and m.hips %}{{ "%.3f"|format(m.waist_hip_ratio()) }}{% else %}—{% endif %}</td>
+                    <td>{{ m.waist or '—' }}</td>
+                    <td class="hide-xs">{{ m.neck or '—' }}</td>
+                    <td class="hide-xs">{{ m.abdomen or '—' }}</td>
+                    <td class="hide-xs">{{ m.hips or '—' }}</td>
+                    <td class="d-none d-md-table-cell">{{ m.chest or '—' }}</td>
+                    <td class="d-none d-md-table-cell">{{ m.thigh or '—' }}</td>
+                    <td class="d-none d-md-table-cell">{{ m.shin or '—' }}</td>
+                    <td class="d-none d-lg-table-cell">{{ m.forearm or '—' }}</td>
+                    <td class="d-none d-lg-table-cell">{{ m.wrist or '—' }}</td>
+                    <td class="text-nowrap">
+                        <div class="d-flex gap-1">
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 btn-edit-meas"
+                                data-id="{{ m.id }}"
+                                data-date="{{ m.date.strftime('%d.%m.%Y') }}"
+                                data-weight="{{ m.weight or '' }}"
+                                data-waist="{{ m.waist or '' }}"
+                                data-hips="{{ m.hips or '' }}"
+                                data-neck="{{ m.neck or '' }}"
+                                data-chest="{{ m.chest or '' }}"
+                                data-abdomen="{{ m.abdomen or '' }}"
+                                data-thigh="{{ m.thigh or '' }}"
+                                data-shin="{{ m.shin or '' }}"
+                                data-forearm="{{ m.forearm or '' }}"
+                                data-wrist="{{ m.wrist or '' }}"
+                                data-bodyfat="{{ m.body_fat or '' }}"
+                                data-bs-toggle="modal" data-bs-target="#editMeasModal"
+                                title="Редактировать">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <form method="POST" action="{{ url_for('main.delete_body', id=m.id) }}"
+                                  onsubmit="return confirm('Удалить замер от {{ m.date.strftime('%d.%m.%Y') }}?')">
+                                {{ form.hidden_tag() }}
+                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" title="Удалить">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endif %}{# /if measurements #}
+
+{# ══════════════════════ МОДАЛКИ ══════════════════════ #}
+
+{# Добавить замер #}
+<div class="modal fade" id="addMeasModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle me-2" style="color:#22c55e"></i>Новый замер</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('main.body') }}">
+                {{ form.hidden_tag() }}
+                <div class="modal-body p-3">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6 col-sm-4">
+                            <label class="form-label small mb-1">Дата</label>
+                            {{ form.date(class="form-control form-control-sm flatpickr-date", placeholder="ДД.ММ.ГГГГ") }}
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <label class="form-label small mb-1">Вес, кг</label>
+                            {{ form.weight(class="form-control form-control-sm", placeholder="—") }}
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <label class="form-label small mb-1">% жира</label>
+                            {{ form.body_fat(class="form-control form-control-sm", placeholder="—") }}
+                        </div>
+                    </div>
+                    <div class="text-secondary small fw-semibold mb-1 mt-2">Обхваты, см</div>
+                    <div class="row g-2">
+                        {% for field, label in [(form.neck,'Шея'),(form.chest,'Грудь'),(form.waist,'Талия'),
+                                                (form.abdomen,'Живот'),(form.hips,'Бёдра'),(form.thigh,'Бедро'),
+                                                (form.shin,'Голень'),(form.forearm,'Предплечье'),(form.wrist,'Запястье')] %}
+                        <div class="col-6 col-sm-4 col-md-3">
+                            <label class="form-label small mb-1">{{ label }}</label>
+                            {{ field(class="form-control form-control-sm", placeholder="—") }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" name="save_measurement" class="btn btn-primary btn-sm">
+                        <i class="bi bi-floppy me-1"></i>Сохранить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Рост и пол #}
+<div class="modal fade" id="heightModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-rulers me-2" style="color:var(--accent)"></i>Рост и пол</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('main.body') }}">
+                {{ height_form.hidden_tag() }}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        {{ height_form.height.label(class="form-label") }}
+                        {{ height_form.height(class="form-control", placeholder="175") }}
+                    </div>
+                    <div>
+                        {{ height_form.gender.label(class="form-label") }}
+                        {{ height_form.gender(class="form-select") }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" name="save_height" value="1" class="btn btn-primary btn-sm">
+                        <i class="bi bi-floppy me-1"></i>Сохранить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ══════════════ МОДАЛКА РЕДАКТИРОВАНИЯ ══════════════ #}
+<div class="modal fade" id="editMeasModal" tabindex="-1" aria-labelledby="editMeasLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editMeasLabel"><i class="bi bi-pencil me-2" style="color:var(--accent)"></i>Редактировать замер</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="editMeasForm" action="">
+                {{ form.hidden_tag() }}
+                <div class="modal-body p-3">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6 col-sm-4">
+                            <label class="form-label small mb-1">Дата</label>
+                            <input type="text" name="date" id="edit_date" class="form-control form-control-sm flatpickr-date-edit" placeholder="ДД.ММ.ГГГГ">
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <label class="form-label small mb-1">Вес, кг</label>
+                            <input type="number" step="0.1" name="weight" id="edit_weight" class="form-control form-control-sm" placeholder="—">
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <label class="form-label small mb-1">% жира</label>
+                            <input type="number" step="0.1" name="body_fat" id="edit_body_fat" class="form-control form-control-sm" placeholder="—">
+                        </div>
+                    </div>
+                    <div class="text-secondary small fw-semibold mb-1 mt-2">Обхваты, см</div>
+                    <div class="row g-2">
+                        {% for fid, flabel in [('neck','Шея'),('chest','Грудь'),('waist','Талия'),
+                                               ('abdomen','Живот'),('hips','Бёдра'),('thigh','Бедро'),
+                                               ('shin','Голень'),('forearm','Предплечье'),('wrist','Запястье')] %}
+                        <div class="col-6 col-sm-4 col-md-3">
+                            <label class="form-label small mb-1">{{ flabel }}</label>
+                            <input type="number" step="0.1" name="{{ fid }}" id="edit_{{ fid }}"
+                                   class="form-control form-control-sm" placeholder="—">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-floppy me-1"></i>Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr-ru.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script>
+// ── Flatpickr ──
+flatpickr('.flatpickr-date',      { locale:'ru', dateFormat:'d.m.Y', defaultDate:'today', allowInput:true, disableMobile:true });
+flatpickr('.flatpickr-date-edit', { locale:'ru', dateFormat:'d.m.Y', allowInput:true, disableMobile:true });
+
+// ── Редактирование замера (data-* → modal) ──
+document.querySelectorAll('.btn-edit-meas').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const d = btn.dataset;
+        document.getElementById('editMeasForm').action = `/body/${d.id}/edit`;
+        const fields = ['date','weight','neck','chest','waist','abdomen','hips','thigh','shin','forearm','wrist','body_fat'];
+        fields.forEach(f => {
+            const el = document.getElementById('edit_' + f);
+            if (el) el.value = (f === 'body_fat' ? d.bodyfat : d[f]) ?? '';
+        });
+        // обновляем flatpickr для даты
+        const fp = document.getElementById('edit_date')._flatpickr;
+        if (fp) fp.setDate(d.date, false, 'd.m.Y');
+    });
+});
+
+// ── График ──
+{% if measurements %}
+const bodyData = {{ chart_data | tojson }};
+const COLORS = {
+    weight:'#6366f1', waist:'#f59e0b', abdomen:'#fb923c', hips:'#22c55e',
+    chest:'#06b6d4', neck:'#60a5fa', thigh:'#a855f7', shin:'#ec4899',
+    forearm:'#14b8a6', wrist:'#f97316', body_fat:'#ef4444'
+};
+const LABELS = {
+    weight:'Вес (кг)', waist:'Талия (см)', abdomen:'Живот (см)', hips:'Бёдра (см)',
+    chest:'Грудь (см)', neck:'Шея (см)', thigh:'Бедро (см)', shin:'Голень (см)',
+    forearm:'Предплечье (см)', wrist:'Запястье (см)', body_fat:'% жира'
+};
+
+function buildDataset(key) {
+    return {
+        label: LABELS[key],
+        data: bodyData.map(r => r[key] ?? null),
+        borderColor: COLORS[key],
+        backgroundColor: COLORS[key] + '22',
+        tension: .35, fill: false,
+        pointRadius: 4, pointHoverRadius: 6,
+        spanGaps: true,
+    };
+}
+
+const ctx = document.getElementById('bodyChart');
+if (ctx) {
+    let bodyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: bodyData.map(r => r.date),
+            datasets: [buildDataset('weight')]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode:'index', intersect:false },
+            plugins: { legend: { labels: { color:'#94a3b8', boxWidth:12, padding:10 } } },
+            scales: {
+                x: { ticks:{ color:'#64748b', maxRotation:45 }, grid:{ color:'#2d3148' } },
+                y: { ticks:{ color:'#64748b' }, grid:{ color:'#2d3148' } }
+            }
+        }
+    });
+
+    document.querySelectorAll('.body-chart-toggle').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const active = [...document.querySelectorAll('.body-chart-toggle:checked')].map(c => c.dataset.key);
+            bodyChart.data.datasets = active.map(buildDataset);
+            bodyChart.update();
+        });
+    });
+}
+{% endif %}
+</script>
+{% endblock %}

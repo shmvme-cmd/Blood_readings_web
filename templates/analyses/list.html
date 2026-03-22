@@ -2,19 +2,147 @@
 
 {% block title %}Мои анализы{% endblock %}
 
+{% block styles %}
+<style>
+/* ── Mobile card layout ── */
+.analysis-card {
+    border-radius: 12px;
+    padding: .9rem 1rem;
+    margin-bottom: .6rem;
+}
+.analysis-card .card-date { font-size: 1rem; font-weight: 700; }
+.analysis-card .diet-chip {
+    font-size: .68rem; padding: .15em .55em;
+    border-radius: 99px; background: rgba(99,102,241,.15); color: #a5b4fc;
+    font-weight: 500; white-space: nowrap;
+}
+.analysis-card .param-label {
+    font-size: .65rem; text-transform: uppercase; letter-spacing: .05em; color: #64748b;
+}
+.card-actions .btn { flex: 1; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <div class="page-title">Мои анализы</div>
-        <div class="page-subtitle">История показателей</div>
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <div class="page-title">Мои анализы</div>
+            <div class="page-subtitle">История показателей</div>
+        </div>
+        <a href="{{ url_for('main.add_analysis') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Новый анализ</span><span class="d-sm-none">Добавить</span>
+        </a>
     </div>
-    <a href="{{ url_for('main.add_analysis') }}" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-1"></i>Новый анализ
-    </a>
 </div>
 
-<div class="card">
-    {% if analyses %}
+{% if analyses %}
+
+{# ════════════════════════════════════════
+   MOBILE — карточки (скрыты на md+)
+   ════════════════════════════════════════ #}
+<div class="d-md-none">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <span class="text-secondary small">{{ analyses|length }} записей</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="checkAllMobile">
+            <i class="bi bi-check2-all me-1"></i>Выбрать все
+        </button>
+    </div>
+
+    {% for a in analyses %}
+    {% set gl_bad = a.glucose is not none and (a.glucose < 3.6 or a.glucose > 6.4) %}
+    {% set ch_bad = a.total_cholesterol is not none and (a.total_cholesterol < 3.6 or a.total_cholesterol > 5.2) %}
+    {% set ld_bad = a.ldl is not none and a.ldl > 3.5 %}
+    {% set hd_bad = a.hdl is not none and a.hdl < 0.9 %}
+    {% set tg_bad = a.triglycerides is not none and a.triglycerides > 2.83 %}
+    {% set hb_bad = a.hemoglobin is not none and (a.hemoglobin < 130 or a.hemoglobin > 160) %}
+
+    <div class="card analysis-card">
+        {# Шапка карточки: чекбокс + дата + диета #}
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <input type="checkbox" class="form-check-input row-check flex-shrink-0"
+                   value="{{ a.id }}" style="width:1.15rem;height:1.15rem">
+            <span class="card-date">{{ a.date.strftime('%d.%m.%Y') }}</span>
+            {% if a.diet and a.diet != 'none' %}
+            {% set diet_labels = {'keto':'Кето','intermittent_fasting':'Инт. голодание','low_carb':'Низкоугл.','vegetarian':'Вег-во','vegan':'Веган'} %}
+            <span class="diet-chip ms-auto">{{ diet_labels.get(a.diet, a.diet) }}</span>
+            {% endif %}
+        </div>
+
+        {# Показатели — сетка значений #}
+        <div class="row g-2 mb-3">
+            {% if a.glucose is not none %}
+            <div class="col-6">
+                <div class="param-label">Глюкоза</div>
+                <span class="vbadge {{ 'vbadge-warn' if gl_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.glucose) }}</span>
+                <small class="text-secondary">ммоль/л</small>
+            </div>
+            {% endif %}
+            {% if a.total_cholesterol is not none %}
+            <div class="col-6">
+                <div class="param-label">Холестерин</div>
+                <span class="vbadge {{ 'vbadge-warn' if ch_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.total_cholesterol) }}</span>
+                <small class="text-secondary">ммоль/л</small>
+            </div>
+            {% endif %}
+            {% if a.ldl is not none %}
+            <div class="col-6">
+                <div class="param-label">ЛПНП</div>
+                <span class="vbadge {{ 'vbadge-warn' if ld_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.ldl) }}</span>
+                <small class="text-secondary">ммоль/л</small>
+            </div>
+            {% endif %}
+            {% if a.hdl is not none %}
+            <div class="col-6">
+                <div class="param-label">ЛПВП</div>
+                <span class="vbadge {{ 'vbadge-warn' if hd_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.hdl) }}</span>
+                <small class="text-secondary">ммоль/л</small>
+            </div>
+            {% endif %}
+            {% if a.triglycerides is not none %}
+            <div class="col-6">
+                <div class="param-label">Триглицериды</div>
+                <span class="vbadge {{ 'vbadge-warn' if tg_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.triglycerides) }}</span>
+                <small class="text-secondary">ммоль/л</small>
+            </div>
+            {% endif %}
+            {% if a.hemoglobin is not none %}
+            <div class="col-6">
+                <div class="param-label">Гемоглобин</div>
+                <span class="vbadge {{ 'vbadge-warn' if hb_bad else 'vbadge-ok' }}">{{ "%.0f"|format(a.hemoglobin) }}</span>
+                <small class="text-secondary">г/л</small>
+            </div>
+            {% endif %}
+            {% if a.glucose is none and a.total_cholesterol is none and a.ldl is none and a.hdl is none and a.triglycerides is none %}
+            <div class="col-12 text-secondary small">Нет ключевых показателей</div>
+            {% endif %}
+        </div>
+
+        {# Кнопки действий #}
+        <div class="d-flex gap-2 card-actions">
+            <a href="{{ url_for('main.view_analysis', id=a.id) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-eye me-1"></i>Просмотр
+            </a>
+            <a href="{{ url_for('main.edit_analysis', id=a.id) }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i>Изменить
+            </a>
+            <form method="POST" action="{{ url_for('main.delete_analysis', id=a.id) }}" class="flex-fill">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% set confirm_msg = 'Удалить анализ от ' ~ a.date.strftime('%d.%m.%Y') ~ '?' %}
+                <button type="submit" class="btn btn-sm btn-outline-danger w-100"
+                    onclick="return confirm('{{ confirm_msg }}')">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{# ════════════════════════════════════════
+   DESKTOP — таблица (скрыта на мобиле)
+   ════════════════════════════════════════ #}
+<div class="card d-none d-md-block">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
             <thead>
@@ -28,60 +156,53 @@
                     <th>ЛПНП</th>
                     <th>ЛПВП</th>
                     <th>Триглицериды</th>
+                    <th>Гемоглобин</th>
                     <th class="pe-4 text-end">Действия</th>
                 </tr>
             </thead>
             <tbody>
                 {% for a in analyses %}
+                {% set gl_bad = a.glucose is not none and (a.glucose < 3.6 or a.glucose > 6.4) %}
+                {% set ch_bad = a.total_cholesterol is not none and (a.total_cholesterol < 3.6 or a.total_cholesterol > 5.2) %}
+                {% set ld_bad = a.ldl is not none and a.ldl > 3.5 %}
+                {% set hd_bad = a.hdl is not none and a.hdl < 0.9 %}
+                {% set tg_bad = a.triglycerides is not none and a.triglycerides > 2.83 %}
+                {% set hb_bad = a.hemoglobin is not none and (a.hemoglobin < 130 or a.hemoglobin > 160) %}
                 <tr>
                     <td class="ps-3">
                         <input type="checkbox" class="form-check-input row-check" value="{{ a.id }}">
                     </td>
                     <td class="fw-medium">{{ a.date.strftime('%d.%m.%Y') }}</td>
                     <td>
-                        {% set norm = norms.get_norm('glucose') %}
                         {% if a.glucose is not none %}
-                        <span class="{% if a.glucose < norm['range'][0] or a.glucose > norm['range'][1] %}val-warn{% else %}val-ok{% endif %}">
-                            {{ "%.2f"|format(a.glucose) }}
-                        </span>
-                        <small class="text-secondary">{{ norm['unit'] }}</small>
-                        {% else %}<span class="text-secondary">—</span>{% endif %}
+                        <span class="vbadge {{ 'vbadge-warn' if gl_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.glucose) }}</span>
+                        <small class="text-secondary">ммоль/л</small>
+                        {% else %}<span class="vbadge-none">—</span>{% endif %}
                     </td>
                     <td>
-                        {% set norm = norms.get_norm('total_cholesterol') %}
                         {% if a.total_cholesterol is not none %}
-                        <span class="{% if a.total_cholesterol < norm['range'][0] or a.total_cholesterol > norm['range'][1] %}val-warn{% else %}val-ok{% endif %}">
-                            {{ "%.2f"|format(a.total_cholesterol) }}
-                        </span>
-                        <small class="text-secondary">{{ norm['unit'] }}</small>
-                        {% else %}<span class="text-secondary">—</span>{% endif %}
+                        <span class="vbadge {{ 'vbadge-warn' if ch_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.total_cholesterol) }}</span>
+                        {% else %}<span class="vbadge-none">—</span>{% endif %}
                     </td>
                     <td>
-                        {% set norm = norms.get_norm('ldl') %}
                         {% if a.ldl is not none %}
-                        <span class="{% if a.ldl > norm['range'][1] %}val-warn{% else %}val-ok{% endif %}">
-                            {{ "%.2f"|format(a.ldl) }}
-                        </span>
-                        <small class="text-secondary">{{ norm['unit'] }}</small>
-                        {% else %}<span class="text-secondary">—</span>{% endif %}
+                        <span class="vbadge {{ 'vbadge-warn' if ld_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.ldl) }}</span>
+                        {% else %}<span class="vbadge-none">—</span>{% endif %}
                     </td>
                     <td>
-                        {% set norm = norms.get_norm('hdl') %}
                         {% if a.hdl is not none %}
-                        <span class="{% if a.hdl < norm['range'][0] %}val-warn{% else %}val-ok{% endif %}">
-                            {{ "%.2f"|format(a.hdl) }}
-                        </span>
-                        <small class="text-secondary">{{ norm['unit'] }}</small>
-                        {% else %}<span class="text-secondary">—</span>{% endif %}
+                        <span class="vbadge {{ 'vbadge-warn' if hd_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.hdl) }}</span>
+                        {% else %}<span class="vbadge-none">—</span>{% endif %}
                     </td>
                     <td>
-                        {% set norm = norms.get_norm('triglycerides') %}
                         {% if a.triglycerides is not none %}
-                        <span class="{% if a.triglycerides > norm['range'][1] %}val-warn{% else %}val-ok{% endif %}">
-                            {{ "%.2f"|format(a.triglycerides) }}
-                        </span>
-                        <small class="text-secondary">{{ norm['unit'] }}</small>
-                        {% else %}<span class="text-secondary">—</span>{% endif %}
+                        <span class="vbadge {{ 'vbadge-warn' if tg_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.triglycerides) }}</span>
+                        {% else %}<span class="vbadge-none">—</span>{% endif %}
+                    </td>
+                    <td>
+                        {% if a.hemoglobin is not none %}
+                        <span class="vbadge {{ 'vbadge-warn' if hb_bad else 'vbadge-ok' }}">{{ "%.0f"|format(a.hemoglobin) }}</span>
+                        {% else %}<span class="vbadge-none">—</span>{% endif %}
                     </td>
                     <td class="pe-4 text-end">
                         <a href="{{ url_for('main.view_analysis', id=a.id) }}" class="btn btn-sm btn-outline-secondary me-1" title="Просмотр">
@@ -91,6 +212,7 @@
                             <i class="bi bi-pencil"></i>
                         </a>
                         <form method="POST" action="{{ url_for('main.delete_analysis', id=a.id) }}" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             {% set confirm_msg = 'Удалить анализ от ' ~ a.date.strftime('%d.%m.%Y') ~ '?' %}
                             <button type="submit" class="btn btn-sm btn-outline-danger"
                                 onclick="return confirm('{{ confirm_msg }}')" title="Удалить">
@@ -103,46 +225,43 @@
             </tbody>
         </table>
     </div>
-    {% else %}
+</div>
+
+{% else %}
+<div class="card">
     <div class="p-5 text-center text-secondary">
         <i class="bi bi-journal-x" style="font-size:2.5rem"></i>
         <p class="mt-3 mb-3">Анализов пока нет</p>
         <a href="{{ url_for('main.add_analysis') }}" class="btn btn-primary">Добавить первый анализ</a>
     </div>
-    {% endif %}
 </div>
+{% endif %}
 
-<!-- Панель объединения анализов -->
+{# ── Панель объединения анализов ── #}
 <div id="mergeBar" class="position-fixed bottom-0 start-0 end-0 border-top border-secondary d-none"
      style="background:#1a1d20; z-index:1040; box-shadow: 0 -4px 16px rgba(0,0,0,.5)">
     <form method="POST" action="{{ url_for('main.merge_analyses') }}" id="mergeForm"
           onsubmit="return confirmMerge()">
         <div id="mergeIdsContainer"></div>
-        <div class="container-fluid py-3">
-            <div class="row align-items-center g-3 flex-wrap">
-                <div class="col-auto">
-                    <span class="fw-medium text-warning" id="selectedCount">0 выбрано</span>
+        <div class="container-fluid py-2 px-3">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="fw-medium text-warning" id="selectedCount">0 выбрано</span>
+                <div class="input-group input-group-sm" style="width:auto">
+                    <span class="input-group-text text-secondary d-none d-sm-flex">Дата</span>
+                    <input type="text" name="merge_date" id="mergeDateInput"
+                           class="form-control form-control-sm" style="width:120px" placeholder="ДД.ММ.ГГГГ" required>
                 </div>
-                <div class="col-auto">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text text-secondary">Дата записи</span>
-                        <input type="text" name="merge_date" id="mergeDateInput"
-                               class="form-control" style="width:130px" placeholder="ДД.ММ.ГГГГ" required>
-                    </div>
-                </div>
-                <div class="col-auto">
-                    <select name="diet" class="form-select form-select-sm">
-                        <option value="none">Обычная диета</option>
-                        <option value="keto">Кето</option>
-                        <option value="intermittent_fasting">Интервальное голодание</option>
-                        <option value="low_carb">Низкоуглеводная</option>
-                        <option value="vegetarian">Вегетарианская</option>
-                        <option value="vegan">Веганская</option>
-                    </select>
-                </div>
-                <div class="col-auto ms-auto d-flex gap-2">
+                <select name="diet" class="form-select form-select-sm" style="width:auto">
+                    <option value="none">Обычная диета</option>
+                    <option value="keto">Кето</option>
+                    <option value="intermittent_fasting">Инт. голодание</option>
+                    <option value="low_carb">Низкоуглеводная</option>
+                    <option value="vegetarian">Вегетарианская</option>
+                    <option value="vegan">Веганская</option>
+                </select>
+                <div class="d-flex gap-2 ms-auto">
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelMerge">
-                        <i class="bi bi-x-lg me-1"></i>Отмена
+                        <i class="bi bi-x-lg"></i>
                     </button>
                     <button type="submit" class="btn btn-warning btn-sm">
                         <i class="bi bi-intersect me-1"></i>Объединить
@@ -155,18 +274,17 @@
 
 <script>
 (function () {
-    const checkAll  = document.getElementById('checkAll');
+    const checkAll       = document.getElementById('checkAll');        // десктоп
+    const checkAllMobile = document.getElementById('checkAllMobile');  // мобайл
     const mergeBar  = document.getElementById('mergeBar');
     const countSpan = document.getElementById('selectedCount');
     const container = document.getElementById('mergeIdsContainer');
     const cancelBtn = document.getElementById('cancelMerge');
     const dateInput = document.getElementById('mergeDateInput');
 
-    // Дата по умолчанию — сегодня
     const t = new Date();
     const pad = n => String(n).padStart(2, '0');
     dateInput.value = pad(t.getDate()) + '.' + pad(t.getMonth() + 1) + '.' + t.getFullYear();
-    if (window.flatpickr) flatpickr('#mergeDateInput', { dateFormat: 'd.m.Y' });
 
     function getChecked() {
         return Array.from(document.querySelectorAll('.row-check:checked'));
@@ -188,25 +306,48 @@
         }
     }
 
-    checkAll.addEventListener('change', function () {
-        document.querySelectorAll('.row-check').forEach(cb => { cb.checked = this.checked; });
-        updateBar();
-    });
+    function syncCheckAll() {
+        const all = document.querySelectorAll('.row-check');
+        const ch  = getChecked();
+        if (checkAll) {
+            checkAll.indeterminate = ch.length > 0 && ch.length < all.length;
+            checkAll.checked = ch.length === all.length && all.length > 0;
+        }
+    }
+
+    // Десктоп: checkAll
+    if (checkAll) {
+        checkAll.addEventListener('change', function () {
+            document.querySelectorAll('.row-check').forEach(cb => { cb.checked = this.checked; });
+            updateBar();
+        });
+    }
+
+    // Мобайл: кнопка "Выбрать все / Снять все"
+    if (checkAllMobile) {
+        checkAllMobile.addEventListener('click', function () {
+            const all = document.querySelectorAll('.row-check');
+            const ch = getChecked();
+            const selectAll = ch.length < all.length;
+            all.forEach(cb => { cb.checked = selectAll; });
+            this.innerHTML = selectAll
+                ? '<i class="bi bi-x-circle me-1"></i>Снять все'
+                : '<i class="bi bi-check2-all me-1"></i>Выбрать все';
+            updateBar();
+        });
+    }
 
     document.querySelectorAll('.row-check').forEach(cb => {
         cb.addEventListener('change', function () {
-            const all = document.querySelectorAll('.row-check');
-            const ch  = getChecked();
-            checkAll.indeterminate = ch.length > 0 && ch.length < all.length;
-            checkAll.checked = ch.length === all.length && all.length > 0;
+            syncCheckAll();
             updateBar();
         });
     });
 
     cancelBtn.addEventListener('click', function () {
         document.querySelectorAll('.row-check').forEach(cb => { cb.checked = false; });
-        checkAll.checked = false;
-        checkAll.indeterminate = false;
+        if (checkAll) { checkAll.checked = false; checkAll.indeterminate = false; }
+        if (checkAllMobile) checkAllMobile.innerHTML = '<i class="bi bi-check2-all me-1"></i>Выбрать все';
         mergeBar.classList.add('d-none');
     });
 

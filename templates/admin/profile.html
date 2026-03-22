@@ -2,100 +2,74 @@
 {% block title %}Мой профиль{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <div class="page-title"><i class="bi bi-person-gear me-2" style="color:var(--accent)"></i>Мой профиль</div>
-        <div class="page-subtitle">Управление учётной записью</div>
-    </div>
+<div class="mb-4">
+    <div class="page-title"><i class="bi bi-person-gear me-2" style="color:var(--accent)"></i>Мой профиль</div>
+    <div class="page-subtitle">Управление учётной записью</div>
 </div>
 
-<div class="row g-4">
-    {# ── Основная информация ── #}
-    <div class="col-lg-6">
-        <form method="POST" action="{{ url_for('admin.profile') }}" novalidate>
-            {{ form.hidden_tag() }}
-            <div class="card">
-                <div class="card-header py-3 px-4">
-                    <i class="bi bi-person me-2"></i>Основная информация
-                </div>
-                <div class="card-body p-4">
-                    <div class="mb-3">
-                        {{ form.username.label(class="form-label") }}
-                        {{ form.username(class="form-control" + (' is-invalid' if form.username.errors else '')) }}
-                        {% if form.username.errors %}
-                            <div class="invalid-feedback">{{ form.username.errors[0] }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="mb-3">
-                        {{ form.email.label(class="form-label") }}
-                        {{ form.email(class="form-control" + (' is-invalid' if form.email.errors else '')) }}
-                        {% if form.email.errors %}
-                            <div class="invalid-feedback">{{ form.email.errors[0] }}</div>
-                        {% endif %}
-                    </div>
-
-                    <hr class="border-secondary my-4">
-                    <div class="text-secondary small fw-semibold mb-3">
-                        <i class="bi bi-shield-lock me-1"></i>СМЕНА ПАРОЛЯ
-                    </div>
-                    <div class="mb-3">
-                        {{ form.current_password.label(class="form-label") }}
-                        {{ form.current_password(class="form-control" + (' is-invalid' if form.current_password.errors else ''), autocomplete="current-password") }}
-                        {% if form.current_password.errors %}
-                            <div class="invalid-feedback">{{ form.current_password.errors[0] }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="mb-3">
-                        {{ form.new_password.label(class="form-label") }}
-                        {{ form.new_password(class="form-control" + (' is-invalid' if form.new_password.errors else ''), autocomplete="new-password") }}
-                        {% if form.new_password.errors %}
-                            <div class="invalid-feedback">{{ form.new_password.errors[0] }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="mb-4">
-                        {{ form.new_password2.label(class="form-label") }}
-                        {{ form.new_password2(class="form-control" + (' is-invalid' if form.new_password2.errors else ''), autocomplete="new-password") }}
-                        {% if form.new_password2.errors %}
-                            <div class="invalid-feedback">{{ form.new_password2.errors[0] }}</div>
-                        {% endif %}
-                        <div class="form-text">Заполните эти поля только если хотите сменить пароль.</div>
-                    </div>
-
-                    {{ form.submit(class="btn btn-primary px-4") }}
-                </div>
-            </div>
-        </form>
+{# ── Краткая инфо-карточка ── #}
+<div class="card mb-4 p-3 d-flex flex-row align-items-center gap-3">
+    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+         style="width:56px;height:56px;background:rgba(99,102,241,.2);color:var(--accent);font-size:1.5rem;font-weight:700">
+        {{ current_user.username[0].upper() }}
     </div>
-
-    {# ── Информация об аккаунте ── #}
-    <div class="col-lg-6">
-        <div class="card">
-            <div class="card-header py-3 px-4">
-                <i class="bi bi-info-circle me-2"></i>Информация об аккаунте
-            </div>
-            <div class="card-body p-4">
-                <dl class="row mb-0">
-                    <dt class="col-sm-5 text-secondary">Логин</dt>
-                    <dd class="col-sm-7">{{ current_user.username }}</dd>
-                    <dt class="col-sm-5 text-secondary">Email</dt>
-                    <dd class="col-sm-7">{{ current_user.email }}</dd>
-                    <dt class="col-sm-5 text-secondary">Роль</dt>
-                    <dd class="col-sm-7">
-                        {% if current_user.is_admin %}
-                            <span class="badge rounded-pill" style="background:rgba(99,102,241,.2);color:var(--accent)">
-                                <i class="bi bi-shield-fill-check me-1"></i>Администратор
-                            </span>
-                        {% else %}
-                            <span class="badge rounded-pill" style="background:rgba(148,163,184,.1);color:#94a3b8">
-                                Пользователь
-                            </span>
-                        {% endif %}
-                    </dd>
-                    <dt class="col-sm-5 text-secondary">Анализов</dt>
-                    <dd class="col-sm-7">{{ current_user.analyses.count() }}</dd>
-                </dl>
-            </div>
+    <div class="flex-grow-1 min-w-0">
+        <div class="fw-bold fs-6">{{ current_user.username }}</div>
+        <div class="text-secondary small text-truncate">{{ current_user.email }}</div>
+        <div class="mt-1">
+            {% if current_user.is_admin %}
+            <span class="badge rounded-pill" style="background:rgba(99,102,241,.2);color:var(--accent);font-size:.72rem">
+                <i class="bi bi-shield-fill-check me-1"></i>Администратор
+            </span>
+            {% else %}
+            <span class="badge rounded-pill" style="background:rgba(148,163,184,.1);color:#94a3b8;font-size:.72rem">Пользователь</span>
+            {% endif %}
+            <span class="text-secondary small ms-2">{{ current_user.analyses.count() }} анализов</span>
         </div>
     </div>
 </div>
+
+<form method="POST" action="{{ url_for('admin.profile') }}" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-person me-2"></i>Основная информация</div>
+        <div class="card-body p-3">
+            <div class="mb-3">
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-control" + (' is-invalid' if form.username.errors else '')) }}
+                {% if form.username.errors %}<div class="invalid-feedback">{{ form.username.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="mb-0">
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-control" + (' is-invalid' if form.email.errors else '')) }}
+                {% if form.email.errors %}<div class="invalid-feedback">{{ form.email.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-shield-lock me-2"></i>Смена пароля</div>
+        <div class="card-body p-3">
+            <div class="mb-3">
+                {{ form.current_password.label(class="form-label") }}
+                {{ form.current_password(class="form-control" + (' is-invalid' if form.current_password.errors else ''), autocomplete="current-password") }}
+                {% if form.current_password.errors %}<div class="invalid-feedback">{{ form.current_password.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                {{ form.new_password.label(class="form-label") }}
+                {{ form.new_password(class="form-control" + (' is-invalid' if form.new_password.errors else ''), autocomplete="new-password") }}
+                {% if form.new_password.errors %}<div class="invalid-feedback">{{ form.new_password.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="mb-0">
+                {{ form.new_password2.label(class="form-label") }}
+                {{ form.new_password2(class="form-control" + (' is-invalid' if form.new_password2.errors else ''), autocomplete="new-password") }}
+                {% if form.new_password2.errors %}<div class="invalid-feedback">{{ form.new_password2.errors[0] }}</div>{% endif %}
+                <div class="form-text">Заполните только если хотите сменить пароль</div>
+            </div>
+        </div>
+    </div>
+
+    {{ form.submit(class="btn btn-primary w-100 py-3 fw-semibold") }}
+</form>
 {% endblock %}

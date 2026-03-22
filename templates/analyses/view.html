@@ -1,23 +1,7 @@
 {% extends "base.html" %}
-
 {% block title %}Анализ от {{ analysis.date.strftime('%d.%m.%Y') }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <div class="page-title">Анализ от {{ analysis.date.strftime('%d.%m.%Y') }}</div>
-        <div class="page-subtitle">Подробные показатели</div>
-    </div>
-    <div class="d-flex gap-2">
-        <a href="{{ url_for('main.edit_analysis', id=analysis.id) }}" class="btn btn-outline-primary">
-            <i class="bi bi-pencil me-1"></i>Редактировать
-        </a>
-        <a href="{{ url_for('main.list_analyses') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Назад
-        </a>
-    </div>
-</div>
-
 {% set diet_labels = {
     'none': 'Обычное питание',
     'intermittent_fasting': 'Интервальное голодание',
@@ -29,16 +13,31 @@
 } %}
 {% set diet_key = analysis.diet or 'none' %}
 
-<div class="card mb-4" style="border-color: rgba(99,102,241,.3)">
-    <div class="card-body p-3 d-flex align-items-center gap-3">
-        <i class="bi bi-egg-fried" style="font-size:1.5rem; color:var(--accent)"></i>
+{# ── Шапка ── #}
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{{ url_for('main.list_analyses') }}" class="btn btn-outline-secondary btn-sm flex-shrink-0">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div class="flex-grow-1 min-w-0">
+        <div class="page-title">{{ analysis.date.strftime('%d.%m.%Y') }}</div>
+        <div class="page-subtitle">{{ diet_labels.get(diet_key, diet_key) }}</div>
+    </div>
+    <a href="{{ url_for('main.edit_analysis', id=analysis.id) }}" class="btn btn-outline-primary btn-sm flex-shrink-0">
+        <i class="bi bi-pencil me-1"></i><span class="d-none d-sm-inline">Изменить</span>
+    </a>
+</div>
+
+{# ── Карточка диеты ── #}
+{% if diet_key != 'none' %}
+<div class="card mb-4" style="border-color:rgba(99,102,241,.3)">
+    <div class="card-body p-3 d-flex align-items-start gap-3">
+        <i class="bi bi-egg-fried flex-shrink-0" style="font-size:1.4rem;color:var(--accent)"></i>
         <div>
-            <div class="text-secondary small fw-semibold" style="text-transform:uppercase;letter-spacing:.05em">Тип питания на момент сдачи</div>
-            <div style="font-size:1.1rem; font-weight:600">{{ diet_labels.get(diet_key, diet_key) }}</div>
+            <div class="fw-semibold">{{ diet_labels.get(diet_key, diet_key) }}</div>
             {% if diet_key == 'intermittent_fasting' %}
             <div class="norm-hint mt-1">Интервальное голодание может снижать глюкозу, триглицериды и положительно влиять на ЛПВП</div>
             {% elif diet_key == 'keto' %}
-            <div class="norm-hint mt-1">Кето-диета может повышать ЛПНП/ЛПВП и снижать триглицериды. Учитывайте это при интерпретации результатов</div>
+            <div class="norm-hint mt-1">Кето-диета может повышать ЛПНП/ЛПВП и снижать триглицериды</div>
             {% elif diet_key == 'low_carb' %}
             <div class="norm-hint mt-1">Низкоуглеводная диета обычно снижает глюкозу и триглицериды</div>
             {% elif diet_key == 'vegetarian' or diet_key == 'vegan' %}
@@ -47,8 +46,10 @@
         </div>
     </div>
 </div>
+{% endif %}
 
-<div class="row g-3">
+{# ── Показатели ── #}
+<div class="row g-2 g-md-3">
     {% for key, value in analysis.to_dict().items() if key not in ['id', 'date', 'diet', 'de_ritis_ratio', 'ldl_hdl_ratio'] %}
     {% set norm_info = norms.get_norm(key) %}
     {% if norm_info and value is not none %}
@@ -56,36 +57,26 @@
     {% set high = norm_info['range'][1] %}
     {% set is_bad = (low is not none and value < low) or (high is not none and value > high) %}
     {% if not norm_info.get('hide_if_normal', False) or is_bad %}
-    <div class="col-md-4">
-        <div class="card h-100" style="border-color: {{ 'rgba(239,68,68,.35)' if is_bad else 'rgba(34,197,94,.25)' }}">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="text-secondary small fw-semibold">{{ norm_info['name'] }}</div>
-                    {% if is_bad %}
-                    <span class="badge-warn">Отклонение</span>
-                    {% else %}
-                    <span class="badge-norm">Норма</span>
-                    {% endif %}
+    <div class="col-6 col-md-4 col-lg-3">
+        <div class="card h-100" style="border-color:{{ 'rgba(239,68,68,.35)' if is_bad else 'rgba(34,197,94,.25)' }}">
+            <div class="card-body p-2 p-md-3">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                    <div class="text-secondary" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;line-height:1.3">{{ norm_info['name'] }}</div>
+                    {% if is_bad %}<span class="badge-warn" style="font-size:.6rem;white-space:nowrap">!</span>
+                    {% else %}<span class="badge-norm" style="font-size:.6rem;white-space:nowrap">✓</span>{% endif %}
                 </div>
-                <div class="{% if is_bad %}val-warn{% else %}val-ok{% endif %}" style="font-size:1.6rem; font-weight:700; line-height:1">
+                <div class="{% if is_bad %}val-warn{% else %}val-ok{% endif %} fw-bold" style="font-size:1.3rem;line-height:1">
                     {{ "%.2f"|format(value) }}
-                    <span class="text-secondary" style="font-size:.8rem; font-weight:400"> {{ norm_info['unit'] }}</span>
+                    <span class="text-secondary" style="font-size:.72rem;font-weight:400"> {{ norm_info['unit'] }}</span>
                 </div>
-                <div class="norm-hint mt-2">
-                    Норма: {{ low if low is not none else '—' }}–{{ high if high is not none else '—' }} {{ norm_info['unit'] }}
+                <div class="norm-hint mt-1" style="font-size:.65rem">
+                    {{ low if low is not none else '—' }}–{{ high if high is not none else '—' }} {{ norm_info['unit'] }}
                 </div>
                 {% if is_bad %}
-                    {% if low is not none and value < low %}
-                    {% set warn_text = norms.get_warning(key, 'low', diet_key) %}
-                    {% if warn_text %}
-                    <div class="mt-2 small" style="color:#f59e0b; white-space:pre-line">{{ warn_text }}</div>
+                    {% if low is not none and value < low %}{% set warn_text = norms.get_warning(key, 'low', diet_key) %}
+                    {% elif high is not none and value > high %}{% set warn_text = norms.get_warning(key, 'high', diet_key) %}
                     {% endif %}
-                    {% elif high is not none and value > high %}
-                    {% set warn_text = norms.get_warning(key, 'high', diet_key) %}
-                    {% if warn_text %}
-                    <div class="mt-2 small" style="color:#f59e0b; white-space:pre-line">{{ warn_text }}</div>
-                    {% endif %}
-                    {% endif %}
+                    {% if warn_text %}<div class="mt-1" style="font-size:.65rem;color:#f59e0b;white-space:pre-line">{{ warn_text }}</div>{% endif %}
                 {% endif %}
             </div>
         </div>
@@ -95,94 +86,62 @@
     {% endfor %}
 </div>
 
+{# ── Описательные показатели мочи ── #}
 {% if analysis.urine_color or analysis.urine_transparency %}
-<div class="mt-4 mb-2" style="font-size:1rem; font-weight:600; color:var(--accent)">
-    <i class="bi bi-droplet me-1"></i>Описательные показатели мочи
-</div>
+<div class="mt-4 mb-2 fw-semibold" style="color:var(--accent)"><i class="bi bi-droplet me-1"></i>Описательные показатели мочи</div>
 <div class="card">
     <div class="card-body p-3">
         <div class="row g-2">
             {% if analysis.urine_color %}
-            <div class="col-md-4">
-                <div class="text-secondary small fw-semibold">Цвет мочи</div>
-                <div>{{ analysis.urine_color }}</div>
-            </div>
+            <div class="col-6"><div class="text-secondary small">Цвет</div><div>{{ analysis.urine_color }}</div></div>
             {% endif %}
             {% if analysis.urine_transparency %}
-            <div class="col-md-4">
-                <div class="text-secondary small fw-semibold">Прозрачность</div>
-                <div>{{ analysis.urine_transparency }}</div>
-            </div>
+            <div class="col-6"><div class="text-secondary small">Прозрачность</div><div>{{ analysis.urine_transparency }}</div></div>
             {% endif %}
         </div>
     </div>
 </div>
 {% endif %}
 
-{# ---- Расчётные коэффициенты ---- #}
+{# ── Расчётные коэффициенты ── #}
 {% set de_ritis_val = analysis.de_ritis_ratio if analysis.de_ritis_ratio is not none else
     (analysis.ast / analysis.alt if (analysis.ast and analysis.alt) else none) %}
 {% set ldl_hdl_val = analysis.ldl_hdl_ratio if analysis.ldl_hdl_ratio is not none else
     (analysis.ldl / analysis.hdl if (analysis.ldl and analysis.hdl) else none) %}
 
 {% if de_ritis_val is not none or ldl_hdl_val is not none %}
-<div class="mt-4 mb-2" style="font-size:1rem; font-weight:600; color:var(--accent)">
-    <i class="bi bi-calculator me-1"></i>Расчётные показатели
-</div>
-<div class="row g-3">
+<div class="mt-4 mb-2 fw-semibold" style="color:var(--accent)"><i class="bi bi-calculator me-1"></i>Расчётные показатели</div>
+<div class="row g-2 g-md-3">
     {% if de_ritis_val is not none %}
     {% set norm_dr = norms.get_norm('de_ritis_ratio') %}
     {% set dr_bad = de_ritis_val < norm_dr['range'][0] or de_ritis_val > norm_dr['range'][1] %}
-    <div class="col-md-4">
-        <div class="card h-100" style="border-color: {{ 'rgba(239,68,68,.35)' if dr_bad else 'rgba(34,197,94,.25)' }}">
+    <div class="col-6 col-md-4">
+        <div class="card h-100" style="border-color:{{ 'rgba(239,68,68,.35)' if dr_bad else 'rgba(34,197,94,.25)' }}">
             <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="d-flex justify-content-between mb-1">
                     <div class="text-secondary small fw-semibold">{{ norm_dr['name'] }}</div>
-                    {% if dr_bad %}<span class="badge-warn">Отклонение</span>
-                    {% else %}<span class="badge-norm">Норма</span>{% endif %}
+                    {% if dr_bad %}<span class="badge-warn">!</span>{% else %}<span class="badge-norm">✓</span>{% endif %}
                 </div>
-                <div class="{% if dr_bad %}val-warn{% else %}val-ok{% endif %}" style="font-size:1.6rem; font-weight:700; line-height:1">
-                    {{ "%.2f"|format(de_ritis_val) }}
-                </div>
-                <div class="norm-hint mt-2">Норма: {{ norm_dr['range'][0] }}–{{ norm_dr['range'][1] }}</div>
-                <div class="norm-hint mt-1" style="font-style:italic">{{ norm_dr['description'] }}</div>
-                {% if dr_bad %}
-                    {% if de_ritis_val < norm_dr['range'][0] %}
-                    {% set warn = norms.get_warning('de_ritis_ratio', 'low', diet_key) %}
-                    {% else %}
-                    {% set warn = norms.get_warning('de_ritis_ratio', 'high', diet_key) %}
-                    {% endif %}
-                    {% if warn %}
-                    <div class="mt-2 small" style="color:#f59e0b; white-space:pre-line">{{ warn }}</div>
-                    {% endif %}
-                {% endif %}
+                <div class="{% if dr_bad %}val-warn{% else %}val-ok{% endif %} fw-bold" style="font-size:1.4rem">{{ "%.2f"|format(de_ritis_val) }}</div>
+                <div class="norm-hint mt-1">Норма: {{ norm_dr['range'][0] }}–{{ norm_dr['range'][1] }}</div>
+                <div class="norm-hint" style="font-style:italic">{{ norm_dr['description'] }}</div>
             </div>
         </div>
     </div>
     {% endif %}
-
     {% if ldl_hdl_val is not none %}
     {% set norm_lh = norms.get_norm('ldl_hdl_ratio') %}
     {% set lh_bad = ldl_hdl_val > norm_lh['range'][1] %}
-    <div class="col-md-4">
-        <div class="card h-100" style="border-color: {{ 'rgba(239,68,68,.35)' if lh_bad else 'rgba(34,197,94,.25)' }}">
+    <div class="col-6 col-md-4">
+        <div class="card h-100" style="border-color:{{ 'rgba(239,68,68,.35)' if lh_bad else 'rgba(34,197,94,.25)' }}">
             <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="d-flex justify-content-between mb-1">
                     <div class="text-secondary small fw-semibold">{{ norm_lh['name'] }}</div>
-                    {% if lh_bad %}<span class="badge-warn">Отклонение</span>
-                    {% else %}<span class="badge-norm">Норма</span>{% endif %}
+                    {% if lh_bad %}<span class="badge-warn">!</span>{% else %}<span class="badge-norm">✓</span>{% endif %}
                 </div>
-                <div class="{% if lh_bad %}val-warn{% else %}val-ok{% endif %}" style="font-size:1.6rem; font-weight:700; line-height:1">
-                    {{ "%.2f"|format(ldl_hdl_val) }}
-                </div>
-                <div class="norm-hint mt-2">Норма: ≤{{ norm_lh['range'][1] }}</div>
-                <div class="norm-hint mt-1" style="font-style:italic">{{ norm_lh['description'] }}</div>
-                {% if lh_bad %}
-                    {% set warn = norms.get_warning('ldl_hdl_ratio', 'high', diet_key) %}
-                    {% if warn %}
-                    <div class="mt-2 small" style="color:#f59e0b; white-space:pre-line">{{ warn }}</div>
-                    {% endif %}
-                {% endif %}
+                <div class="{% if lh_bad %}val-warn{% else %}val-ok{% endif %} fw-bold" style="font-size:1.4rem">{{ "%.2f"|format(ldl_hdl_val) }}</div>
+                <div class="norm-hint mt-1">Норма: ≤{{ norm_lh['range'][1] }}</div>
+                <div class="norm-hint" style="font-style:italic">{{ norm_lh['description'] }}</div>
             </div>
         </div>
     </div>
@@ -190,35 +149,26 @@
 </div>
 {% endif %}
 
-{% set serology = [
-    ('hbs_ag',         'HBs-антиген (гепатит B)',                   analysis.hbs_ag),
-    ('hiv_ab',         'Антитела/антиген HIV',                       analysis.hiv_ab),
-    ('hepatitis_c_ab', 'Антитела к Hepatitis C',                     analysis.hepatitis_c_ab),
-    ('treponema_ab',   'Антитела к Treponema pallidum (сифилис)',     analysis.treponema_ab),
-] %}
+{# ── Серология ── #}
 {% set has_serology = analysis.hbs_ag is not none or analysis.hiv_ab is not none or analysis.hepatitis_c_ab is not none or analysis.treponema_ab is not none %}
 {% if has_serology %}
-<div class="mt-4 mb-2" style="font-size:1rem; font-weight:600; color:var(--accent)">Серологические исследования</div>
-<div class="row g-3">
-    {% for field_name, label, val in serology %}
+<div class="mt-4 mb-2 fw-semibold" style="color:var(--accent)">Серологические исследования</div>
+<div class="row g-2 g-md-3">
+    {% for field_name, label, val in [
+        ('hbs_ag', 'HBs-антиген (гепатит B)', analysis.hbs_ag),
+        ('hiv_ab', 'Антитела/антиген HIV', analysis.hiv_ab),
+        ('hepatitis_c_ab', 'Антитела к Hepatitis C', analysis.hepatitis_c_ab),
+        ('treponema_ab', 'Антитела к Treponema pallidum', analysis.treponema_ab),
+    ] %}
     {% if val is not none %}
-    <div class="col-md-4">
-        <div class="card h-100" style="border-color: {{ 'rgba(239,68,68,.35)' if val else 'rgba(34,197,94,.25)' }}">
+    <div class="col-6 col-md-4">
+        <div class="card h-100" style="border-color:{{ 'rgba(239,68,68,.35)' if val else 'rgba(34,197,94,.25)' }}">
             <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="text-secondary small fw-semibold">{{ label }}</div>
-                    {% if val %}
-                    <span class="badge-warn">Положительный</span>
-                    {% else %}
-                    <span class="badge-norm">Отрицательный</span>
-                    {% endif %}
-                </div>
-                <div class="{% if val %}val-warn{% else %}val-ok{% endif %}" style="font-size:1.4rem; font-weight:700; line-height:1">
+                <div class="text-secondary small fw-semibold mb-2">{{ label }}</div>
+                <div class="{% if val %}val-warn{% else %}val-ok{% endif %} fw-bold" style="font-size:1.1rem">
                     {% if val %}Положительный{% else %}Отрицательный{% endif %}
                 </div>
-                {% if val %}
-                <div class="mt-2 small" style="color:#f59e0b">Требуется консультация врача</div>
-                {% endif %}
+                {% if val %}<div class="mt-1 small" style="color:#f59e0b">Требуется консультация врача</div>{% endif %}
             </div>
         </div>
     </div>
@@ -226,4 +176,106 @@
     {% endfor %}
 </div>
 {% endif %}
+
+{# ── AI-анализ ── #}
+<div class="mt-4" id="ai-section">
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        <div class="fw-semibold" style="color:var(--accent)">
+            <i class="bi bi-robot me-1"></i>AI-интерпретация
+        </div>
+        <button id="btn-ai" class="btn btn-sm btn-outline-primary ms-auto" onclick="loadAI(false)">
+            <i class="bi bi-stars me-1"></i>
+            {% if analysis.ai_analysis %}Показать анализ{% else %}Получить AI-анализ{% endif %}
+        </button>
+        {% if analysis.ai_analysis %}
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadAI(true)" title="Перегенерировать">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        {% endif %}
+    </div>
+
+    <div id="ai-result" class="card" style="display:none">
+        <div class="card-body p-3 p-md-4">
+            <div class="text-secondary small text-center py-4" id="ai-loading" style="display:none">
+                <div class="spinner-border spinner-border-sm me-2"></div>
+                Llama 3.3 70B анализирует данные…
+            </div>
+            <div id="ai-text" style="line-height:1.7;font-size:.93rem"></div>
+            <div id="ai-error" class="text-danger small mt-2" style="display:none"></div>
+        </div>
+    </div>
+
+    <div class="text-secondary mt-1" style="font-size:.7rem">
+        <i class="bi bi-info-circle me-1"></i>
+        Генерируется моделью Llama 3.3 70B (Groq). Не заменяет консультацию врача.
+        Ответ кэшируется — повторные открытия страницы бесплатны.
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+const AI_URL  = '{{ url_for("main.analysis_ai", id=analysis.id) }}';
+const CSRF    = document.cookie.match(/csrf_token=([^;]+)/)?.[1] || '';
+const hasCached = {{ 'true' if analysis.ai_analysis else 'false' }};
+
+async function loadAI(regenerate) {
+    const result  = document.getElementById('ai-result');
+    const loading = document.getElementById('ai-loading');
+    const textDiv = document.getElementById('ai-text');
+    const errDiv  = document.getElementById('ai-error');
+    const btn     = document.getElementById('btn-ai');
+
+    result.style.display = 'block';
+    loading.style.display = 'block';
+    textDiv.innerHTML = '';
+    errDiv.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Анализирую…';
+
+    try {
+        const resp = await fetch(AI_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.content || '',
+            },
+            body: JSON.stringify({ regenerate }),
+        });
+        const data = await resp.json();
+        loading.style.display = 'none';
+        if (data.error) {
+            errDiv.textContent = '⚠️ ' + data.error;
+            errDiv.style.display = 'block';
+            btn.innerHTML = '<i class="bi bi-stars me-1"></i>Попробовать снова';
+        } else {
+            textDiv.innerHTML = marked.parse(data.text || '');
+            btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Скрыть';
+            btn.onclick = toggleAI;
+        }
+    } catch (e) {
+        loading.style.display = 'none';
+        errDiv.textContent = '⚠️ Ошибка сети: ' + e.message;
+        errDiv.style.display = 'block';
+        btn.innerHTML = '<i class="bi bi-stars me-1"></i>Попробовать снова';
+    }
+    btn.disabled = false;
+}
+
+function toggleAI() {
+    const result = document.getElementById('ai-result');
+    const btn    = document.getElementById('btn-ai');
+    if (result.style.display === 'none') {
+        result.style.display = 'block';
+        btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Скрыть';
+    } else {
+        result.style.display = 'none';
+        btn.innerHTML = '<i class="bi bi-stars me-1"></i>Показать анализ';
+        btn.onclick = function() { loadAI(false); };
+    }
+}
+
+if (hasCached) loadAI(false);
+</script>
 {% endblock %}

@@ -5,42 +5,42 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <div class="page-title">Добро пожаловать, {{ current_user.username }}</div>
-        <div class="page-subtitle">Обзор ваших показателей</div>
+        <div class="page-title">Привет, {{ current_user.username }}</div>
+        <div class="page-subtitle">Обзор показателей</div>
     </div>
-    <a href="{{ url_for('main.add_analysis') }}" class="btn btn-primary">
+    <a href="{{ url_for('main.add_analysis') }}" class="btn btn-primary d-none d-md-inline-flex">
         <i class="bi bi-plus-lg me-1"></i>Новый анализ
     </a>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-sm-6 col-lg-3">
+<div class="row g-2 g-md-3 mb-4">
+    <div class="col-6 col-lg-3">
         <div class="card stat-card">
             <div class="stat-label mb-1"><i class="bi bi-journal-medical me-1"></i>Всего анализов</div>
             <div class="stat-value">{{ analyses|length }}</div>
         </div>
     </div>
     {% if analyses %}
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-6 col-lg-3">
         <div class="card stat-card">
-            <div class="stat-label mb-1"><i class="bi bi-calendar-check me-1"></i>Последний анализ</div>
-            <div class="stat-value" style="font-size:1.4rem">{{ analyses[0].date.strftime('%d.%m.%Y') }}</div>
+            <div class="stat-label mb-1"><i class="bi bi-calendar-check me-1"></i>Последний</div>
+            <div class="stat-value" style="font-size:1.2rem">{{ analyses[0].date.strftime('%d.%m.%Y') }}</div>
         </div>
     </div>
     {% set last = analyses[0] %}
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-6 col-lg-3">
         <div class="card stat-card">
             <div class="stat-label mb-1"><i class="bi bi-droplet me-1"></i>Глюкоза</div>
-            <div class="stat-value {% if last.glucose is not none and (last.glucose < 3.6 or last.glucose > 6.4) %}val-warn{% elif last.glucose is not none %}val-ok{% endif %}" style="font-size:1.5rem">
-                {% if last.glucose is not none %}{{ "%.2f"|format(last.glucose) }} <small class="text-secondary" style="font-size:.9rem">ммоль/л</small>{% else %}—{% endif %}
+            <div class="stat-value {% if last.glucose is not none and (last.glucose < 3.6 or last.glucose > 6.4) %}val-warn{% elif last.glucose is not none %}val-ok{% endif %}">
+                {% if last.glucose is not none %}{{ "%.1f"|format(last.glucose) }}<small class="text-secondary" style="font-size:.7rem"> ммоль/л</small>{% else %}—{% endif %}
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-6 col-lg-3">
         <div class="card stat-card">
             <div class="stat-label mb-1"><i class="bi bi-heart-pulse me-1"></i>Холестерин</div>
-            <div class="stat-value {% if last.total_cholesterol is not none and (last.total_cholesterol < 3.6 or last.total_cholesterol > 5.2) %}val-warn{% elif last.total_cholesterol is not none %}val-ok{% endif %}" style="font-size:1.5rem">
-                {% if last.total_cholesterol is not none %}{{ "%.2f"|format(last.total_cholesterol) }} <small class="text-secondary" style="font-size:.9rem">ммоль/л</small>{% else %}—{% endif %}
+            <div class="stat-value {% if last.total_cholesterol is not none and (last.total_cholesterol < 3.6 or last.total_cholesterol > 5.2) %}val-warn{% elif last.total_cholesterol is not none %}val-ok{% endif %}">
+                {% if last.total_cholesterol is not none %}{{ "%.1f"|format(last.total_cholesterol) }}<small class="text-secondary" style="font-size:.7rem"> ммоль/л</small>{% else %}—{% endif %}
             </div>
         </div>
     </div>
@@ -48,12 +48,35 @@
 </div>
 
 <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center py-3 px-4">
+    <div class="card-header d-flex justify-content-between align-items-center py-2 py-md-3 px-3 px-md-4">
         <span><i class="bi bi-clock-history me-2"></i>Последние анализы</span>
         <a href="{{ url_for('main.list_analyses') }}" class="btn btn-sm btn-outline-primary">Все записи</a>
     </div>
     {% if analyses %}
-    <div class="table-responsive">
+
+    {# Mobile: карточки #}
+    <div class="d-md-none p-2">
+        {% for a in analyses[:5] %}
+        {% set gl_bad = a.glucose is not none and (a.glucose < 3.6 or a.glucose > 6.4) %}
+        {% set ch_bad = a.total_cholesterol is not none and (a.total_cholesterol < 3.6 or a.total_cholesterol > 5.2) %}
+        {% set ld_bad = a.ldl is not none and a.ldl > 3.5 %}
+        {% set hd_bad = a.hdl is not none and a.hdl < 0.9 %}
+        {% set tg_bad = a.triglycerides is not none and a.triglycerides > 2.83 %}
+        <div class="d-flex align-items-center justify-content-between gap-2 p-2 rounded mb-1" style="background:rgba(255,255,255,.03)">
+            <div class="fw-medium" style="min-width:90px;font-size:.9rem">{{ a.date.strftime('%d.%m.%Y') }}</div>
+            <div class="d-flex flex-wrap gap-1 flex-grow-1">
+                {% if a.glucose is not none %}<span class="vbadge {{ 'vbadge-warn' if gl_bad else 'vbadge-ok' }}" title="Глюкоза">{{ "%.1f"|format(a.glucose) }}</span>{% endif %}
+                {% if a.total_cholesterol is not none %}<span class="vbadge {{ 'vbadge-warn' if ch_bad else 'vbadge-ok' }}" title="ХС">{{ "%.1f"|format(a.total_cholesterol) }}</span>{% endif %}
+                {% if a.ldl is not none %}<span class="vbadge {{ 'vbadge-warn' if ld_bad else 'vbadge-ok' }}" title="ЛПНП">{{ "%.1f"|format(a.ldl) }}</span>{% endif %}
+                {% if a.hdl is not none %}<span class="vbadge {{ 'vbadge-warn' if hd_bad else 'vbadge-ok' }}" title="ЛПВП">{{ "%.1f"|format(a.hdl) }}</span>{% endif %}
+            </div>
+            <a href="{{ url_for('main.view_analysis', id=a.id) }}" class="btn btn-sm btn-outline-secondary flex-shrink-0"><i class="bi bi-eye"></i></a>
+        </div>
+        {% endfor %}
+    </div>
+
+    {# Desktop: таблица #}
+    <div class="d-none d-md-block table-responsive">
         <table class="table table-hover mb-0">
             <thead>
                 <tr>
@@ -62,29 +85,29 @@
                     <th>Холестерин</th>
                     <th>ЛПНП</th>
                     <th>ЛПВП</th>
+                    <th>Гемоглобин</th>
                     <th class="pe-4"></th>
                 </tr>
             </thead>
             <tbody>
                 {% for a in analyses[:8] %}
+                {% set gl_bad = a.glucose is not none and (a.glucose < 3.6 or a.glucose > 6.4) %}
+                {% set ch_bad = a.total_cholesterol is not none and (a.total_cholesterol < 3.6 or a.total_cholesterol > 5.2) %}
+                {% set ld_bad = a.ldl is not none and a.ldl > 3.5 %}
+                {% set hd_bad = a.hdl is not none and a.hdl < 0.9 %}
+                {% set hb_bad = a.hemoglobin is not none and (a.hemoglobin < 130 or a.hemoglobin > 160) %}
                 <tr>
-                    <td class="ps-4">{{ a.date.strftime('%d.%m.%Y') }}</td>
-                    <td class="{% if a.glucose is not none and (a.glucose < 3.6 or a.glucose > 6.4) %}val-warn{% elif a.glucose is not none %}val-ok{% endif %}">
-                        {{ "%.2f"|format(a.glucose) if a.glucose is not none else '—' }}
+                    <td class="ps-4 fw-medium">{{ a.date.strftime('%d.%m.%Y') }}</td>
+                    <td>
+                        {% if a.glucose is not none %}<span class="vbadge {{ 'vbadge-warn' if gl_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.glucose) }}</span> <span class="text-secondary" style="font-size:.7rem">ммоль/л</span>
+                        {% else %}<span class="vbadge-none">—</span>{% endif %}
                     </td>
-                    <td class="{% if a.total_cholesterol is not none and (a.total_cholesterol < 3.6 or a.total_cholesterol > 5.2) %}val-warn{% elif a.total_cholesterol is not none %}val-ok{% endif %}">
-                        {{ "%.2f"|format(a.total_cholesterol) if a.total_cholesterol is not none else '—' }}
-                    </td>
-                    <td class="{% if a.ldl is not none and a.ldl > 3.5 %}val-warn{% elif a.ldl is not none %}val-ok{% endif %}">
-                        {{ "%.2f"|format(a.ldl) if a.ldl is not none else '—' }}
-                    </td>
-                    <td class="{% if a.hdl is not none and a.hdl < 0.9 %}val-warn{% elif a.hdl is not none %}val-ok{% endif %}">
-                        {{ "%.2f"|format(a.hdl) if a.hdl is not none else '—' }}
-                    </td>
+                    <td>{% if a.total_cholesterol is not none %}<span class="vbadge {{ 'vbadge-warn' if ch_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.total_cholesterol) }}</span>{% else %}<span class="vbadge-none">—</span>{% endif %}</td>
+                    <td>{% if a.ldl is not none %}<span class="vbadge {{ 'vbadge-warn' if ld_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.ldl) }}</span>{% else %}<span class="vbadge-none">—</span>{% endif %}</td>
+                    <td>{% if a.hdl is not none %}<span class="vbadge {{ 'vbadge-warn' if hd_bad else 'vbadge-ok' }}">{{ "%.1f"|format(a.hdl) }}</span>{% else %}<span class="vbadge-none">—</span>{% endif %}</td>
+                    <td>{% if a.hemoglobin is not none %}<span class="vbadge {{ 'vbadge-warn' if hb_bad else 'vbadge-ok' }}">{{ "%.0f"|format(a.hemoglobin) }}</span>{% else %}<span class="vbadge-none">—</span>{% endif %}</td>
                     <td class="pe-4 text-end">
-                        <a href="{{ url_for('main.view_analysis', id=a.id) }}" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-eye"></i>
-                        </a>
+                        <a href="{{ url_for('main.view_analysis', id=a.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>
                     </td>
                 </tr>
                 {% endfor %}
@@ -178,6 +201,18 @@
                     <li><label class="dropdown-item d-flex align-items-center gap-2">
                         <input type="checkbox" class="form-check-input param-check" value="microalbumin">
                         Микроальбумин</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="ferritin">
+                        Ферритин</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="insulin">
+                        Инсулин</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="homa_ir">
+                        HOMA-IR</label></li>
+                    <li><label class="dropdown-item d-flex align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input param-check" value="vitamin_d">
+                        Витамин D</label></li>
                     <li class="px-2 pb-2 pt-2 border-top border-secondary border-bottom mt-1 mb-1">
                         <small class="text-secondary fw-semibold">Клинический анализ крови</small>
                     </li>
@@ -294,6 +329,192 @@
         </div>
     </div>
 </div>
+
+{# ══════════════════════════════════════════════════════════
+   БЛОК: Метаболизм & Липидный профиль (диетический анализ)
+   ══════════════════════════════════════════════════════════ #}
+{% if analyses %}
+{% set last = analyses[0] %}
+<div class="card mt-4" id="metabBlock">
+    <div class="card-header py-3 px-4 d-flex align-items-center gap-2">
+        <i class="bi bi-activity" style="color:var(--accent)"></i>
+        <span>Метаболизм и липидный профиль</span>
+        <span class="badge rounded-pill ms-auto" style="background:rgba(99,102,241,.15);color:var(--accent);font-size:.72rem">
+            {{ last.diet | replace('none','Обычное питание') | replace('keto','Кето') | replace('intermittent_fasting','Интервальное голодание') | replace('low_carb','Низкоуглеводная') | replace('vegetarian','Вегетарианство') | replace('vegan','Веганство') | replace('other','Другое') }}
+        </span>
+    </div>
+    <div class="card-body p-4">
+        <div class="row g-3">
+
+            {# ── Метаболический риск ── #}
+            <div class="col-12 col-lg-6">
+                <div class="card h-100" style="border-color:#2d3148">
+                    <div class="card-body p-3">
+                        <div class="text-secondary small fw-semibold mb-3">
+                            <i class="bi bi-lightning-charge me-1" style="color:#f59e0b"></i>ИНСУЛИНОРЕЗИСТЕНТНОСТЬ
+                        </div>
+
+                        {# Glucose #}
+                        {% if last.glucose is not none %}
+                        <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px solid rgba(148,163,184,.1)">
+                            <div>
+                                <div class="small fw-medium">Глюкоза натощак</div>
+                                {% if last.diet in ['keto','low_carb'] %}
+                                <div class="text-secondary" style="font-size:.7rem">⚡ При {{ 'кето' if last.diet=='keto' else 'низкоугл.' }} диете снижение ожидаемо</div>
+                                {% elif last.diet == 'intermittent_fasting' %}
+                                <div class="text-secondary" style="font-size:.7rem">⚡ Уровень зависит от времени последнего приёма пищи</div>
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold {% if last.glucose < 3.6 or last.glucose > 6.4 %}val-warn{% else %}val-ok{% endif %}" style="font-size:1.1rem">{{ "%.1f"|format(last.glucose) }}</span>
+                                <span class="text-secondary small"> ммоль/л</span>
+                                <div style="font-size:.68rem;color:#64748b">норма 3.6–6.4</div>
+                                {% if last.glucose >= 5.6 and last.glucose <= 6.9 %}
+                                <div class="text-warning" style="font-size:.7rem">⚠ Преддиабет</div>
+                                {% elif last.glucose >= 7.0 %}
+                                <div class="text-danger" style="font-size:.7rem">✗ Диабет (порог)</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {# Insulin #}
+                        {% if last.insulin is not none %}
+                        <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px solid rgba(148,163,184,.1)">
+                            <div>
+                                <div class="small fw-medium">Инсулин</div>
+                                {% if last.diet in ['keto','low_carb','intermittent_fasting'] %}
+                                <div class="text-secondary" style="font-size:.7rem">✓ Снижение инсулина — цель этой диеты</div>
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold {% if last.insulin < 2.6 or last.insulin > 24.9 %}val-warn{% else %}val-ok{% endif %}" style="font-size:1.1rem">{{ "%.1f"|format(last.insulin) }}</span>
+                                <span class="text-secondary small"> мкМЕ/мл</span>
+                                <div style="font-size:.68rem;color:#64748b">норма 2.6–24.9</div>
+                                {% if last.insulin > 15 %}
+                                <div class="text-warning" style="font-size:.7rem">⚠ Возможная гиперинсулинемия</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {# HOMA-IR #}
+                        {% if last.homa_ir is not none %}
+                        {% set homa = last.homa_ir %}
+                        <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px solid rgba(148,163,184,.1)">
+                            <div>
+                                <div class="small fw-medium">HOMA-IR</div>
+                                <div class="text-secondary" style="font-size:.7rem">Инсулин × Глюкоза / 22.5</div>
+                                {% if last.diet in ['keto','low_carb','intermittent_fasting'] %}
+                                <div class="text-secondary" style="font-size:.7rem">✓ Снижение HOMA-IR — ключевая цель</div>
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold {% if homa > 4 %}val-warn{% elif homa > 2.7 %}text-warning{% else %}val-ok{% endif %}" style="font-size:1.1rem">{{ "%.2f"|format(homa) }}</span>
+                                <div style="font-size:.68rem;color:#64748b">норма &lt;2.7</div>
+                                {% if homa <= 2.7 %}
+                                <div class="val-ok" style="font-size:.7rem">✓ Чувствительность к инсулину — норма</div>
+                                {% elif homa <= 4.0 %}
+                                <div class="text-warning" style="font-size:.7rem">⚠ Начальная инсулинорезистентность</div>
+                                {% else %}
+                                <div class="val-warn" style="font-size:.7rem">✗ Выраженная инсулинорезистентность</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% elif last.glucose is not none and last.insulin is not none %}
+                        {% set homa_calc = (last.insulin * last.glucose / 22.5) | round(2) %}
+                        <div class="py-2 text-secondary small" style="border-bottom:1px solid rgba(148,163,184,.1)">
+                            <span>HOMA-IR (расчётный): </span>
+                            <span class="fw-bold {% if homa_calc > 2.7 %}val-warn{% else %}val-ok{% endif %}">{{ homa_calc }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if last.glucose is none and last.insulin is none and last.homa_ir is none %}
+                        <div class="text-secondary small">
+                            <i class="bi bi-info-circle me-1"></i>Данных нет. Добавьте глюкозу и инсулин в анализ.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {# ── Липидный профиль ── #}
+            <div class="col-12 col-lg-6">
+                <div class="card h-100" style="border-color:#2d3148">
+                    <div class="card-body p-3">
+                        <div class="text-secondary small fw-semibold mb-3">
+                            <i class="bi bi-heart-pulse me-1" style="color:#ef4444"></i>ЛИПИДНЫЙ ПРОФИЛЬ
+                        </div>
+
+                        {% set lipid_data = [
+                            ('total_cholesterol', last.total_cholesterol, 'Общий холестерин', 3.6, 5.2, 'ммоль/л'),
+                            ('ldl', last.ldl, 'ЛПНП (плохой)', none, 3.5, 'ммоль/л'),
+                            ('hdl', last.hdl, 'ЛПВП (хороший)', 0.9, 2.1, 'ммоль/л'),
+                            ('triglycerides', last.triglycerides, 'Триглицериды', 0.5, 2.83, 'ммоль/л'),
+                            ('vldl', last.vldl, 'ЛПОНП', none, 3.3, 'ммоль/л'),
+                            ('ldl_hdl_ratio', last.ldl_hdl_ratio, 'Инд. атерогенности (ЛПНП/ЛПВП)', none, 3.5, ''),
+                        ] %}
+
+                        {% set has_lipids = namespace(v=false) %}
+                        {% for key, val, name, mn, mx, unit in lipid_data %}
+                        {% if val is not none %}{% set has_lipids.v = true %}
+                        <div class="d-flex justify-content-between align-items-center py-1" style="border-bottom:1px solid rgba(148,163,184,.08)">
+                            <div class="small">
+                                {{ name }}
+                                {# Diet context hints #}
+                                {% if last.diet == 'keto' %}
+                                    {% if key == 'ldl' %}<div class="text-secondary" style="font-size:.68rem">⚡ Кето: ЛПНП может расти — оценивайте в паре с ЛПВП</div>{% endif %}
+                                    {% if key == 'hdl' %}<div class="text-secondary" style="font-size:.68rem">✓ Кето: ЛПВП растёт — это защитный эффект</div>{% endif %}
+                                    {% if key == 'triglycerides' %}<div class="text-secondary" style="font-size:.68rem">✓ Кето: снижение ТГ — ожидаемый эффект</div>{% endif %}
+                                {% elif last.diet == 'intermittent_fasting' %}
+                                    {% if key == 'triglycerides' %}<div class="text-secondary" style="font-size:.68rem">✓ ИГ: снижение ТГ — типичный эффект</div>{% endif %}
+                                    {% if key == 'hdl' %}<div class="text-secondary" style="font-size:.68rem">✓ ИГ: рост ЛПВП — положительная динамика</div>{% endif %}
+                                {% elif last.diet == 'low_carb' %}
+                                    {% if key == 'triglycerides' %}<div class="text-secondary" style="font-size:.68rem">✓ НУД: снижение ТГ — характерный эффект</div>{% endif %}
+                                {% endif %}
+                            </div>
+                            <div class="text-end flex-shrink-0 ms-2">
+                                {% set bad = (mx is not none and val > mx) or (mn is not none and val < mn) %}
+                                <span class="fw-bold {% if bad %}val-warn{% else %}val-ok{% endif %}">{{ "%.2f"|format(val) }}</span>
+                                {% if unit %}<span class="text-secondary" style="font-size:.75rem"> {{ unit }}</span>{% endif %}
+                                <div style="font-size:.65rem;color:#64748b">
+                                    {% if mn is not none and mx is not none %}{{ mn }}–{{ mx }}
+                                    {% elif mx is not none %}&lt;{{ mx }}
+                                    {% elif mn is not none %}&gt;{{ mn }}{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+
+                        {% if not has_lipids.v %}
+                        <div class="text-secondary small">
+                            <i class="bi bi-info-circle me-1"></i>Данных нет. Добавьте липидный профиль в анализ.
+                        </div>
+                        {% endif %}
+
+                        {# Итоговая оценка риска #}
+                        {% if last.ldl_hdl_ratio is not none %}
+                        <div class="mt-3 p-2 rounded" style="background:rgba(99,102,241,.07)">
+                            <div class="small fw-semibold mb-1">Сердечно-сосудистый риск (ЛПНП/ЛПВП)</div>
+                            {% if last.ldl_hdl_ratio <= 2.0 %}
+                            <span class="val-ok small">✓ Низкий риск (&le;2.0)</span>
+                            {% elif last.ldl_hdl_ratio <= 3.5 %}
+                            <span class="text-warning small">⚠ Умеренный риск (2.0–3.5)</span>
+                            {% else %}
+                            <span class="val-warn small">✗ Высокий риск (&gt;3.5)</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </div>{# /row #}
+    </div>
+</div>
+{% endif %}
+
 {% endif %}
 
 {% endblock %}
@@ -350,6 +571,10 @@ const PARAMS = {
     urine_ph:              { label: 'pH мочи',                           unit: 'ед. рН',   min: 5.0,   max: 7.0   },
     urine_protein:         { label: 'Белок в моче',                      unit: 'г/л',      min: null,  max: 0.14  },
     urine_urobilinogen:    { label: 'Уробилиноген в моче',               unit: 'мкмоль/л', min: null,  max: 17.0  },
+    ferritin:              { label: 'Ферритин',                           unit: 'мкг/л',    min: 20,    max: 250   },
+    insulin:               { label: 'Инсулин',                           unit: 'мкМЕ/мл',  min: 2.6,   max: 24.9  },
+    homa_ir:               { label: 'HOMA-IR',                           unit: '',         min: null,  max: 2.7   },
+    vitamin_d:             { label: 'Витамин D (25-OH)',                  unit: 'нг/мл',    min: 30,    max: 100   },
 };
 
 const LINE_COLORS = [

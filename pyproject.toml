@@ -13,6 +13,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "email-validator>=2.0.0",
     "pdfplumber>=0.11.0",
+    "groq>=1.0.0",
 ]
 
 [tool.setuptools.packages.find]

@@ -9,7 +9,10 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), index=True, unique=True)
     password_hash = db.Column(db.String(128))
     is_admin = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
+    height = db.Column(db.Float)  # рост в см, для расчёта ИМТ
+    gender = db.Column(db.String(8))   # 'male' / 'female' / None
     analyses = db.relationship('MedicalAnalysis', backref='patient', lazy='dynamic')
+    body_measurements = db.relationship('BodyMeasurement', backref='patient', lazy='dynamic')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -57,6 +60,14 @@ class MedicalAnalysis(db.Model):
     basophils_abs = db.Column(db.Float)
     basophils_pct = db.Column(db.Float)
     # Биохимия дополнительная
+    albumin                = db.Column(db.Float)  # г/л
+    total_protein          = db.Column(db.Float)  # г/л
+    ggt                    = db.Column(db.Float)  # ГГТ, Ед/л
+    potassium              = db.Column(db.Float)  # Калий, ммоль/л
+    calcium                = db.Column(db.Float)  # Кальций общий, ммоль/л
+    sodium                 = db.Column(db.Float)  # Натрий, ммоль/л
+    phosphorus             = db.Column(db.Float)  # Фосфор неорганический, ммоль/л
+    chloride               = db.Column(db.Float)  # Хлор, ммоль/л
     bilirubin_total        = db.Column(db.Float)
     bilirubin_direct       = db.Column(db.Float)
     bilirubin_indirect     = db.Column(db.Float)
@@ -66,7 +77,16 @@ class MedicalAnalysis(db.Model):
     ckf_total              = db.Column(db.Float)
     psa                    = db.Column(db.Float)
     microalbumin           = db.Column(db.Float)
-    # Анализ мочи
+    # Гормоны и инсулинорезистентность
+    ferritin               = db.Column(db.Float)
+    insulin                = db.Column(db.Float)
+    homa_ir                = db.Column(db.Float)
+    vitamin_d              = db.Column(db.Float)
+    # Анализ мочи по Нечипоренко (Ед/мл)
+    nechiporenko_leukocytes      = db.Column(db.Float)
+    nechiporenko_erythrocytes    = db.Column(db.Float)
+    nechiporenko_cylinders       = db.Column(db.Float)
+    # Общий анализ мочи
     urine_specific_gravity       = db.Column(db.Float)
     urine_ph                     = db.Column(db.Float)
     urine_protein                = db.Column(db.Float)
@@ -106,6 +126,7 @@ class MedicalAnalysis(db.Model):
     hiv_ab         = db.Column(db.Boolean)
     hepatitis_c_ab = db.Column(db.Boolean)
     treponema_ab   = db.Column(db.Boolean)
+    ai_analysis    = db.Column(db.Text)       # кэш AI-интерпретации
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
     def to_dict(self):
@@ -147,6 +168,17 @@ class MedicalAnalysis(db.Model):
             'eosinophils_pct': self.eosinophils_pct,
             'basophils_abs': self.basophils_abs,
             'basophils_pct': self.basophils_pct,
+            'albumin': self.albumin,
+            'total_protein': self.total_protein,
+            'ggt': self.ggt,
+            'potassium': self.potassium,
+            'calcium': self.calcium,
+            'sodium': self.sodium,
+            'phosphorus': self.phosphorus,
+            'chloride': self.chloride,
+            'nechiporenko_leukocytes': self.nechiporenko_leukocytes,
+            'nechiporenko_erythrocytes': self.nechiporenko_erythrocytes,
+            'nechiporenko_cylinders': self.nechiporenko_cylinders,
             'bilirubin_total': self.bilirubin_total,
             'bilirubin_direct': self.bilirubin_direct,
             'bilirubin_indirect': self.bilirubin_indirect,
@@ -156,6 +188,10 @@ class MedicalAnalysis(db.Model):
             'ckf_total': self.ckf_total,
             'psa': self.psa,
             'microalbumin': self.microalbumin,
+            'ferritin': self.ferritin,
+            'insulin': self.insulin,
+            'homa_ir': self.homa_ir,
+            'vitamin_d': self.vitamin_d,
             'urine_specific_gravity': self.urine_specific_gravity,
             'urine_ph': self.urine_ph,
             'urine_protein': self.urine_protein,
@@ -194,6 +230,79 @@ class MedicalAnalysis(db.Model):
             'hepatitis_c_ab': self.hepatitis_c_ab,
             'treponema_ab':   self.treponema_ab,
         }
+
+class BodyMeasurement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.DateTime, index=True, nullable=False)
+    weight = db.Column(db.Float)       # кг
+    waist = db.Column(db.Float)        # см, талия
+    hips = db.Column(db.Float)         # см, бёдра (обхват на уровне таза)
+    neck = db.Column(db.Float)         # см, шея
+    forearm = db.Column(db.Float)      # см, предплечье
+    wrist = db.Column(db.Float)        # см, запястье
+    thigh = db.Column(db.Float)        # см, бедро (обхват бедра)
+    shin = db.Column(db.Float)         # см, голень
+    abdomen = db.Column(db.Float)      # см, живот (на уровне пупка)
+    chest = db.Column(db.Float)        # см, грудь
+    body_fat = db.Column(db.Float)     # % жира (опционально)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+    def waist_hip_ratio(self):
+        if self.waist and self.hips:
+            return round(self.waist / self.hips, 3)
+        return None
+
+    def bmi(self, height_cm):
+        if self.weight and height_cm:
+            h = height_cm / 100
+            return round(self.weight / (h * h), 1)
+        return None
+
+    def navy_body_fat(self, height_cm, gender):
+        """Формула ВМС США (антропометрический метод), все замеры в сантиметрах.
+        Муж: 86.010×log10(талия−шея) − 70.041×log10(рост) + 30.295
+        Жен: 163.205×log10(талия+бёдра−шея) − 97.684×log10(рост) − 104.912
+        (Константы пересчитаны из оригинала в дюймах через log10(2.54)=0.40483)
+        """
+        import math
+        if not height_cm or not self.waist or not self.neck:
+            return None
+        try:
+            if gender == 'male':
+                diff = self.waist - self.neck
+                if diff <= 0:
+                    return None
+                result = 86.010 * math.log10(diff) - 70.041 * math.log10(height_cm) + 30.295
+            elif gender == 'female':
+                if not self.hips:
+                    return None
+                diff = self.waist + self.hips - self.neck
+                if diff <= 0:
+                    return None
+                result = 163.205 * math.log10(diff) - 97.684 * math.log10(height_cm) - 104.912
+            else:
+                return None
+            return round(max(0.0, result), 1)
+        except (ValueError, ZeroDivisionError):
+            return None
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'date': self.date.strftime('%d.%m.%Y'),
+            'weight': self.weight,
+            'waist': self.waist,
+            'hips': self.hips,
+            'neck': self.neck,
+            'forearm': self.forearm,
+            'wrist': self.wrist,
+            'thigh': self.thigh,
+            'shin': self.shin,
+            'abdomen': self.abdomen,
+            'chest': self.chest,
+            'body_fat': self.body_fat,
+        }
+
 
 @login_manager.user_loader
 def load_user(id):

@@ -8,3 +8,4 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL') or 'sqlite:///medical_analyses.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     BOOTSTRAP_SERVE_LOCAL = True
+    GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
